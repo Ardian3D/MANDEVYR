@@ -561,9 +561,9 @@ function App() {
             <br />
             <em>Stay in command.</em>
           </h2>
-          <a href="/app" className="button button-mint reveal">
+          <Link className="button button-mint reveal" to="/app">
             Launch App<ArrowUpRight size={17} />
-          </a>
+          </Link>
           <div className="closing-line" aria-hidden="true" />
         </section>
       </main>
