@@ -1,0 +1,190 @@
+.launch-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 50% 48%, #293b2745, transparent 60%), #090e0b;
+  clip-path: inset(0% 0% 0% 0%);
+  isolation: isolate;
+}
+.launch-overlay::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(#bfd5ab08 1px, transparent 1px),
+    linear-gradient(90deg, #bfd5ab08 1px, transparent 1px);
+  background-size: 80px 80px;
+  mask-image: radial-gradient(ellipse, #000, transparent 75%);
+  z-index: -1;
+}
+.launch-coordinate,
+.launch-foot {
+  position: absolute;
+  left: 48px;
+  right: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 30px;
+  font: 9px var(--mono);
+  letter-spacing: 0.12em;
+  color: #879d7a;
+}
+.launch-coordinate {
+  top: 38px;
+}
+.launch-foot {
+  bottom: 38px;
+}
+.launch-wave {
+  position: absolute;
+  left: 50%;
+  top: 49%;
+  transform: translate(-50%, -50%);
+  width: min(940px, 87vw);
+  height: min(490px, 58vh);
+  display: flex;
+  align-items: center;
+  gap: clamp(3px, 0.6vw, 9px);
+  opacity: 0.62;
+  mask-image: radial-gradient(ellipse, transparent 13%, #000 60%);
+}
+.launch-wave i {
+  flex: 1;
+  min-width: 0;
+  border-radius: 5px;
+  transform: scaleY(0.025);
+  opacity: 0;
+  background: linear-gradient(
+    #c6ddb5dd,
+    #97b98750 45%,
+    #39502d40 85%,
+    #b4d09855
+  );
+  box-shadow: inset 0 1px 0 #e1f4cf33;
+}
+.launch-wave i:nth-child(n + 19) {
+  background: linear-gradient(
+    #9fc3a6dd,
+    #76a78a50 45%,
+    #264c3840 85%,
+    #91c8a855
+  );
+}
+.launch-identity {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 15px;
+}
+.launch-monogram {
+  display: grid;
+  place-items: center;
+  width: 124px;
+  height: 124px;
+  border-radius: 30px;
+  background: linear-gradient(140deg, #e2ebd9, #9eb798);
+  border: 1px solid #dff0ce99;
+  box-shadow:
+    0 0 0 10px #c8e0b709,
+    0 0 0 11px #c8e0b714,
+    0 25px 70px #0005;
+  opacity: 0;
+}
+.launch-monogram img {
+  width: 86px;
+  height: 86px;
+  object-fit: contain;
+}
+.launch-word {
+  display: flex;
+  overflow: hidden;
+  margin-top: 37px;
+  padding-bottom: 3px;
+  font:
+    500 clamp(23px, 3vw, 40px) "Manrope Variable",
+    sans-serif;
+  letter-spacing: 0.16em;
+  color: #e5eddd;
+}
+.launch-word span {
+  display: block;
+  opacity: 0;
+}
+.launch-caption {
+  font: 8px var(--mono);
+  letter-spacing: 0.17em;
+  color: #a8bc9b;
+  margin-top: 14px;
+  opacity: 0;
+}
+.launch-track {
+  height: 1px;
+  background: #acc99125;
+  flex: 1;
+  max-width: 360px;
+  overflow: hidden;
+}
+.launch-track i {
+  height: 100%;
+  width: 100%;
+  display: block;
+  background: #c2dfaa;
+  transform: scaleX(0);
+  transform-origin: left;
+}
+.coming-main h1:focus {
+  outline: none;
+}
+@media (max-width: 600px) {
+  .launch-coordinate,
+  .launch-foot {
+    left: 24px;
+    right: 24px;
+    font-size: 7px;
+    gap: 20px;
+    letter-spacing: 0.08em;
+  }
+  .launch-coordinate {
+    top: 28px;
+  }
+  .launch-foot {
+    bottom: 28px;
+    flex-wrap: wrap;
+  }
+  .launch-foot > span:last-child {
+    display: none;
+  }
+  .launch-monogram {
+    width: 96px;
+    height: 96px;
+    border-radius: 24px;
+  }
+  .launch-monogram img {
+    width: 68px;
+    height: 68px;
+  }
+  .launch-wave {
+    width: 110vw;
+    height: 380px;
+    gap: 5px;
+  }
+  .launch-caption {
+    font-size: 7px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .launch-wave {
+    display: none;
+  }
+  .launch-monogram,
+  .launch-word span,
+  .launch-caption {
+    opacity: 1;
+  }
+}

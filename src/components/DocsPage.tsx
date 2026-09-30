@@ -1,0 +1,551 @@
+import { useEffect, useRef, useState } from "react";
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  BookOpen,
+  Check,
+  ChevronRight,
+  ExternalLink,
+  ArrowLeft,
+} from "lucide-react";
+import { Brand } from "./Brand";
+import { Link, useLocation } from "react-router-dom";
+
+const chapters = [
+  { id: "introduction", label: "Introduction", group: "START HERE" },
+  { id: "quickstart", label: "Try the preview", group: "START HERE" },
+  { id: "product-model", label: "Product model", group: "START HERE" },
+  { id: "mandates", label: "Mandates", group: "THE WORKSPACE" },
+  { id: "preflight", label: "Preflight checks", group: "THE WORKSPACE" },
+  { id: "use-cases", label: "Use cases", group: "THE WORKSPACE" },
+  {
+    id: "trust-boundaries",
+    label: "Trust boundaries",
+    group: "DESIGN PRINCIPLES",
+  },
+  { id: "token-roadmap", label: "Token & roadmap", group: "DESIGN PRINCIPLES" },
+  { id: "glossary", label: "Glossary & references", group: "MORE" },
+];
+
+export function DocsPage() {
+  const { hash } = useLocation();
+  const content = useRef<HTMLDivElement>(null);
+  const [active, setActive] = useState("introduction");
+
+  useEffect(() => {
+    document.title = "Documentation — MANDEVYR";
+    window.scrollTo(0, 0);
+  }, []);
+
+  useEffect(() => {
+    if (!hash) {
+      content.current?.scrollTo({ top: 0, behavior: "instant" });
+      return;
+    }
+    const id = hash.slice(1) || "introduction";
+    const node = document.getElementById(`doc-${id}`);
+    if (!node || !content.current) return;
+    content.current.scrollTo({
+      top:
+        node.getBoundingClientRect().top -
+        content.current.getBoundingClientRect().top +
+        content.current.scrollTop,
+      behavior: "instant",
+    });
+  }, [hash]);
+
+  useEffect(() => {
+    const container = content.current;
+    if (!container) return;
+    const update = () => {
+      let current = chapters[0].id;
+      for (const chapter of chapters) {
+        const node = container.querySelector<HTMLElement>(`#doc-${chapter.id}`);
+        if (
+          node &&
+          node.getBoundingClientRect().top <=
+            container.getBoundingClientRect().top + 160
+        )
+          current = chapter.id;
+      }
+      setActive(current);
+    };
+    container.addEventListener("scroll", update, { passive: true });
+    update();
+    return () => container.removeEventListener("scroll", update);
+  }, []);
+
+  const groups = [...new Set(chapters.map((chapter) => chapter.group))];
+  return (
+    <div className="docs-page">
+      <header className="docs-topbar">
+        <Link to="/" className="docs-brand" aria-label="MANDEVYR home">
+          <Brand />
+        </Link>
+        <span className="docs-top-label">
+          <BookOpen size={15} /> PRODUCT DOCUMENTATION <i /> EARLY PREVIEW
+        </span>
+        <Link className="docs-close" to="/">
+          <ArrowLeft size={15} />
+          <span>Back to home</span>
+        </Link>
+      </header>
+      <div className="docs-frame">
+        <aside className="docs-sidebar" aria-label="Documentation chapters">
+          <span className="docs-sidebar-label">ON THIS PAGE</span>
+          {groups.map((group) => (
+            <div className="docs-nav-group" key={group}>
+              <span>{group}</span>
+              {chapters
+                .filter((chapter) => chapter.group === group)
+                .map((chapter) => (
+                  <Link
+                    key={chapter.id}
+                    className={active === chapter.id ? "active" : ""}
+                    aria-current={
+                      active === chapter.id ? "location" : undefined
+                    }
+                    to={`/docs#${chapter.id}`}
+                  >
+                    {chapter.label}
+                    <ChevronRight size={13} />
+                  </Link>
+                ))}
+            </div>
+          ))}
+          <div className="docs-sidebar-foot">
+            <i /> PRODUCT STATUS
+            <br />
+            <strong>Early concept</strong>
+          </div>
+        </aside>
+
+        <main
+          className="docs-content"
+          ref={content}
+          id="docs-main"
+          tabIndex={-1}
+        >
+          <article className="docs-article">
+            <section className="docs-intro" id="doc-introduction">
+              <div className="docs-breadcrumb">
+                <span>MANDEVYR</span>
+                <ChevronRight size={12} />
+                <span>DOCUMENTATION</span>
+              </div>
+              <span className="eyebrow">
+                A DECISION WORKSPACE FOR ONCHAIN FINANCE
+              </span>
+              <h1>
+                Move with
+                <br />
+                <em>clear intent.</em>
+              </h1>
+              <p className="docs-lede">
+                MANDEVYR is an agentic finance workspace being built for Arc
+                Network. It makes proposed onchain financial decisions easier to
+                inspect, constrain, and approve, bringing your rules, supporting
+                evidence, and proposed actions into one deliberate workflow.
+              </p>
+              <div className="docs-status">
+                <span>
+                  <i /> IN DEVELOPMENT
+                </span>
+                <span>LAST UPDATED · 30 SEP 2026</span>
+              </div>
+            </section>
+
+            <section className="docs-section" id="doc-quickstart">
+              <span className="docs-index">GET STARTED / THREE MINUTES</span>
+              <h2>
+                Your first <em>preflight.</em>
+              </h2>
+              <p>
+                The landing preview runs locally in your browser. You can
+                explore every result without an account, wallet, or payment.
+              </p>
+              <ol className="docs-steps">
+                <li>
+                  <strong>Choose a scenario.</strong>
+                  <p>
+                    Open the interactive preview and choose Yield, Agent
+                    payments, or Tokenized assets.
+                  </p>
+                </li>
+                <li>
+                  <strong>Set an amount.</strong>
+                  <p>
+                    The displayed mandate is the limit for that example. Change
+                    the amount to see how the rule responds.
+                  </p>
+                </li>
+                <li>
+                  <strong>Check the evidence.</strong>
+                  <p>
+                    Toggle source freshness, then select Run preflight. Expand
+                    “What is being checked?” to inspect the rules behind the
+                    result.
+                  </p>
+                </li>
+              </ol>
+              <div className="docs-example">
+                <span>TRY THESE EXAMPLES</span>
+                <dl>
+                  <div>
+                    <dt>Yield · 50 USDC · fresh</dt>
+                    <dd>PASS</dd>
+                  </div>
+                  <div>
+                    <dt>Yield · 150 USDC · fresh</dt>
+                    <dd>BLOCK</dd>
+                  </div>
+                  <div>
+                    <dt>Yield · 50 USDC · stale</dt>
+                    <dd>UNKNOWN</dd>
+                  </div>
+                  <div>
+                    <dt>Tokenized assets · 75 USDC · fresh</dt>
+                    <dd>REVIEW</dd>
+                  </div>
+                </dl>
+              </div>
+              <p>
+                The example checks the amount first, source freshness second,
+                and asset review requirements last. A PASS is a rule-check
+                result; it does not predict returns or authorize a transaction.
+                Changing an input clears the previous result.
+              </p>
+              <a className="docs-inline-link" href="/#experience">
+                Open the interactive preview <ArrowUpRight size={14} />
+              </a>
+            </section>
+
+            <section className="docs-section" id="doc-product-model">
+              <span className="docs-index">01 — PRODUCT MODEL</span>
+              <h2>
+                A workspace around <em>your mandate.</em>
+              </h2>
+              <p>
+                Onchain markets, tokenized assets, and automated services create
+                many ways to move value. MANDEVYR is being designed to help a
+                person understand a proposed move before deciding whether to
+                approve it.
+              </p>
+              <p>
+                The product is organized around three questions: What are you
+                trying to do? What rules and evidence apply? What needs your
+                attention before you choose?
+              </p>
+              <div className="docs-principles">
+                <div>
+                  <span>01</span>
+                  <strong>Intent</strong>
+                  <p>Describe the kind of action and its limits.</p>
+                </div>
+                <div>
+                  <span>02</span>
+                  <strong>Evidence</strong>
+                  <p>See the inputs and checks behind a result.</p>
+                </div>
+                <div>
+                  <span>03</span>
+                  <strong>Approval</strong>
+                  <p>Keep the final decision with the account owner.</p>
+                </div>
+              </div>
+            </section>
+
+            <section className="docs-section" id="doc-mandates">
+              <span className="docs-index">02 — PERSONAL RULES</span>
+              <h2>
+                Make your boundaries <em>explicit.</em>
+              </h2>
+              <p>
+                A mandate is a proposed set of user-defined constraints that a
+                future MANDEVYR product could apply when reviewing an action. It
+                may describe spending limits, permitted action categories,
+                review requirements, or how recent supporting data must be.
+              </p>
+              <div className="docs-callout">
+                <span>DESIGN PRINCIPLE</span>
+                <p>
+                  A mandate helps evaluate an action. It does not grant an agent
+                  authority to move funds by itself.
+                </p>
+              </div>
+              <h3>What a mandate could contain</h3>
+              <ul className="docs-checklist">
+                <li>
+                  <Check /> Per-action or per-period budget limits.
+                </li>
+                <li>
+                  <Check /> Categories or assets that require extra review.
+                </li>
+                <li>
+                  <Check /> Freshness requirements for market or issuer data.
+                </li>
+                <li>
+                  <Check /> Conditions that always require a human approval.
+                </li>
+              </ul>
+              <p>
+                These are product design goals. Persistent mandates and wallet
+                permissions are not implemented on this landing page.
+              </p>
+            </section>
+
+            <section className="docs-section" id="doc-preflight">
+              <span className="docs-index">03 — BEFORE AN ACTION</span>
+              <h2>
+                Preflight makes the <em>reasoning visible.</em>
+              </h2>
+              <p>
+                A preflight check is a review step that compares a proposed
+                action with the available rules and evidence. Its job is to make
+                potential issues easier to notice before any future signing or
+                execution step.
+              </p>
+              <div className="docs-verdicts">
+                <div>
+                  <span className="verdict-mark pass">✓</span>
+                  <strong>PASS</strong>
+                  <p>The example satisfies the rules that were checked.</p>
+                </div>
+                <div>
+                  <span className="verdict-mark review">?</span>
+                  <strong>REVIEW</strong>
+                  <p>More context or a human review is needed.</p>
+                </div>
+                <div>
+                  <span className="verdict-mark block">×</span>
+                  <strong>BLOCK</strong>
+                  <p>The example violates a configured limit.</p>
+                </div>
+                <div>
+                  <span className="verdict-mark unknown">…</span>
+                  <strong>UNKNOWN</strong>
+                  <p>Required evidence is missing or out of date.</p>
+                </div>
+              </div>
+              <p>
+                A result is only as useful as its inputs. The landing page demo
+                uses illustrative values and simple local rules; it does not
+                fetch market data, verify contracts, connect a wallet, or submit
+                a transaction.
+              </p>
+            </section>
+
+            <section className="docs-section" id="doc-use-cases">
+              <span className="docs-index">04 — THREE PRODUCT AREAS</span>
+              <h2>
+                One set of rules.
+                <br />
+                <em>Many kinds of move.</em>
+              </h2>
+              <div className="docs-usecase">
+                <span>01 / YIELD INTELLIGENCE</span>
+                <h3>Understand the opportunity.</h3>
+                <p>
+                  A future view could collect information about a yield
+                  opportunity, its source, terms, freshness, and relevant risk
+                  context. MANDEVYR does not promise returns or recommend a
+                  particular vault.
+                </p>
+                <a href="https://docs.arc.io/" target="_blank" rel="noreferrer">
+                  Explore Arc developer docs <ExternalLink size={13} />
+                </a>
+              </div>
+              <div className="docs-usecase">
+                <span>02 / AGENT PAYMENTS WITH x402</span>
+                <h3>Put a budget around paid requests.</h3>
+                <p>
+                  x402 is an open protocol for requesting and settling payment
+                  for internet resources through an HTTP-based flow. A MANDEVYR
+                  integration could help an account owner inspect a service,
+                  price, and spending limit before an agent makes a paid
+                  request. The preview does not send x402 payments.
+                </p>
+                <a
+                  href="https://github.com/x402-foundation/x402"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Read the x402 specification <ExternalLink size={13} />
+                </a>
+              </div>
+              <div className="docs-usecase">
+                <span>03 / TOKENIZED ASSETS</span>
+                <h3>Look past the ticker.</h3>
+                <p>
+                  A future asset review could surface issuer information, access
+                  or eligibility conditions, and redemption terms alongside a
+                  proposed allocation. A tokenized representation does not
+                  remove the need to understand issuer, legal, liquidity, or
+                  redemption risks.
+                </p>
+              </div>
+            </section>
+
+            <section className="docs-section" id="doc-trust-boundaries">
+              <span className="docs-index">05 — TRUST & CONTROL</span>
+              <h2>
+                Clarity first.
+                <br />
+                <em>Authority by choice.</em>
+              </h2>
+              <p>
+                MANDEVYR is planned as a non-custodial workspace. The intended
+                direction is to keep assets in user-controlled wallets and to
+                require an explicit wallet approval for any future transaction.
+              </p>
+              <div className="docs-callout">
+                <span>CURRENT STATUS</span>
+                <p>
+                  This is an early product concept. There is no live wallet
+                  connection, account system, backend, market-data feed,
+                  automated agent, payment flow, or transaction on this site.
+                </p>
+              </div>
+              <p>
+                Any future signing, delegated permissions, smart contracts, or
+                payment integrations need their own implementation, threat
+                review, testing, and clear user-facing disclosures before they
+                are offered.
+              </p>
+            </section>
+
+            <section className="docs-section" id="doc-token-roadmap">
+              <span className="docs-index">06 — ROADMAP & TOKEN</span>
+              <h2>
+                Usefulness <em>comes first.</em>
+              </h2>
+              <div className="docs-roadmap">
+                <div>
+                  <span>NOW</span>
+                  <strong>Foundation</strong>
+                  <p>
+                    Landing page, product narrative, and local preflight
+                    concept.
+                  </p>
+                </div>
+                <div>
+                  <span>NEXT</span>
+                  <strong>Intelligence</strong>
+                  <p>
+                    Explore curated data, mandates, evidence, and alert designs.
+                  </p>
+                </div>
+                <div>
+                  <span>THEN</span>
+                  <strong>Actions</strong>
+                  <p>
+                    Evaluate wallet-approved actions and metered x402 services
+                    after engineering and security work.
+                  </p>
+                </div>
+                <div>
+                  <span>LATER</span>
+                  <strong>Token utility</strong>
+                  <p>
+                    Only define launch and utility details after there is a
+                    working product to support them.
+                  </p>
+                </div>
+              </div>
+              <p>
+                A future MANDEVYR token launch through Argus is a plan, not a
+                live offering. No token contract, ticker, supply, launch date,
+                allocation, or holder entitlement is finalized. Report credits,
+                expanded monitoring, and metered API access are utility ideas,
+                not promised benefits.
+              </p>
+              <a
+                className="docs-inline-link"
+                href="https://argus.world"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Visit Argus <ArrowUpRight size={14} />
+              </a>
+            </section>
+
+            <section className="docs-section docs-last" id="doc-glossary">
+              <span className="docs-index">07 — REFERENCE</span>
+              <h2>
+                A few useful <em>terms.</em>
+              </h2>
+              <dl className="docs-glossary">
+                <div>
+                  <dt>Arc</dt>
+                  <dd>
+                    The network MANDEVYR is being designed to support. No Circle
+                    partnership or endorsement is implied.
+                  </dd>
+                </div>
+                <div>
+                  <dt>Mandate</dt>
+                  <dd>A user-defined set of limits and review preferences.</dd>
+                </div>
+                <div>
+                  <dt>Preflight</dt>
+                  <dd>
+                    A proposed review of an action before a wallet approval or
+                    transaction.
+                  </dd>
+                </div>
+                <div>
+                  <dt>x402</dt>
+                  <dd>
+                    An open payment protocol built around the HTTP 402 Payment
+                    Required flow.
+                  </dd>
+                </div>
+                <div>
+                  <dt>Tokenized asset</dt>
+                  <dd>
+                    A token that represents or relates to an asset; the token
+                    and issuer terms still matter.
+                  </dd>
+                </div>
+              </dl>
+              <div className="docs-references">
+                <span>PRIMARY REFERENCES</span>
+                <a href="https://docs.arc.io/" target="_blank" rel="noreferrer">
+                  Arc developer documentation <ExternalLink size={13} />
+                </a>
+                <a
+                  href="https://www.arc.io/brand-guidelines-and-partner-toolkit"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Arc brand guidelines <ExternalLink size={13} />
+                </a>
+                <a
+                  href="https://github.com/x402-foundation/x402"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  x402 Foundation specification <ExternalLink size={13} />
+                </a>
+              </div>
+            </section>
+            <footer className="docs-footer">
+              <a href="/#experience">
+                MANDEVYR <span>·</span> BACK TO THE EXPERIENCE{" "}
+                <ArrowDownRight size={14} />
+              </a>
+              <span>PRODUCT CONCEPT · SEPTEMBER 2026</span>
+            </footer>
+          </article>
+        </main>
+        <div className="docs-progress" aria-hidden="true">
+          <span
+            style={{
+              height: `${((chapters.findIndex((chapter) => chapter.id === active) + 1) / chapters.length) * 100}%`,
+            }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
