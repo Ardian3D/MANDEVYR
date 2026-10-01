@@ -1,4 +1,4 @@
-import app from "../src/worker/index.ts";
+import app from "./_worker.mjs";
 
 export function GET(request: Request) {
   return app.fetch(request);
