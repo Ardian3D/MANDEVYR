@@ -136,13 +136,11 @@ export function PreflightDemo() {
           <i />
           <i />
         </div>
-        <span>MANDEVYR / WORKSPACE</span>
-        <span className="demo-label">INTERACTIVE PREVIEW</span>
+        <span className="demo-label">Illustrative preview</span>
       </div>
       <div className="demo-layout">
         <aside className="demo-sidebar">
           <Brand compact />
-          <span className="sidebar-caption">YOUR WORKSPACE</span>
           <div className="sidebar-item selected">
             <ShieldCheck size={16} /> Preflight
           </div>
@@ -164,12 +162,8 @@ export function PreflightDemo() {
         <div className="demo-main">
           <div className="demo-heading">
             <div>
-              <span className="eyebrow small">A MOMENT OF CLARITY</span>
               <h3>Before you make a move.</h3>
             </div>
-            <span className="demo-network">
-              <span className="status-dot" /> ARC CONCEPT
-            </span>
           </div>
           <div
             className="demo-tabs"
@@ -221,7 +215,7 @@ export function PreflightDemo() {
           >
             <div className="intent-panel">
               <div className="intent-panel-title">
-                <span>01 / DEFINE YOUR MOVE</span>
+                <span>Define your move</span>
                 <SlidersHorizontal size={14} />
               </div>
               <h4>{config.title}</h4>
@@ -231,7 +225,7 @@ export function PreflightDemo() {
                   <config.icon size={20} />
                 </span>
                 <div>
-                  <span className="micro-label">ILLUSTRATIVE TARGET</span>
+                  <span className="micro-label">Example target</span>
                   <strong>{config.target}</strong>
                 </div>
                 <ChevronRight size={16} />
@@ -296,7 +290,7 @@ export function PreflightDemo() {
               className={`verdict-panel ${verdict ? `verdict-${verdict.toLowerCase()}` : ""}`}
             >
               <div className="intent-panel-title">
-                <span>02 / SEE THE REASONING</span>
+                <span>Why this result</span>
                 <span className="mini-square" />
               </div>
               <div
@@ -315,9 +309,9 @@ export function PreflightDemo() {
                     <ShieldCheck size={31} />
                   )}
                 </span>
-                <span className="verdict-status">
-                  {running ? "CHECKING" : (verdict ?? "READY WHEN YOU ARE")}
-                </span>
+                {(running || verdict) && <span className="verdict-status">
+                  {running ? "Checking" : verdict}
+                </span>}
                 <h4>
                   {running
                     ? "Connecting the dots."

@@ -285,15 +285,10 @@ h2 {
   justify-content: center;
   align-items: center;
   gap: 10px;
-  font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: 0.1em;
+  font-family: "DM Sans Variable", sans-serif;
+  font-size: 12px;
+  letter-spacing: 0;
   color: #adbcac;
-}
-.status-version {
-  border-left: 1px solid #b3c7af40;
-  padding-left: 12px;
-  color: #748774;
 }
 .hero h1 {
   font-family: "Manrope Variable", sans-serif;
@@ -330,9 +325,9 @@ h2 {
   margin-top: 37px;
 }
 .arc-signature span {
-  font-family: var(--mono);
-  font-size: 8px;
-  letter-spacing: 0.08em;
+  font-family: "DM Sans Variable", sans-serif;
+  font-size: 11px;
+  letter-spacing: 0;
   color: #819082;
 }
 .arc-signature img {
@@ -367,10 +362,10 @@ h2 {
   right: 44px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  font-family: var(--mono);
-  font-size: 8px;
-  letter-spacing: 0.08em;
+  justify-content: center;
+  font-family: "DM Sans Variable", sans-serif;
+  font-size: 11px;
+  letter-spacing: 0;
   color: #7e9181;
 }
 .hero-bottom a {
@@ -390,7 +385,6 @@ h2 {
   padding: 32px 44px;
   display: flex;
   align-items: center;
-  gap: 55px;
   justify-content: center;
   background: #0d120f;
 }
@@ -405,7 +399,7 @@ h2 {
 .capabilities-strip > div {
   display: flex;
   align-items: center;
-  gap: 34px;
+  gap: clamp(24px, 4vw, 56px);
   font-size: 17px;
   letter-spacing: -0.025em;
 }
@@ -833,7 +827,7 @@ h2 {
 }
 .manifesto h2 {
   font-size: clamp(44px, 6.3vw, 94px);
-  margin-top: 30px;
+  margin-top: 0;
 }
 .manifesto h2 > span {
   color: #798976;
@@ -869,7 +863,7 @@ h2 {
   text-align: left;
 }
 .principles div > span {
-  font: 8px var(--mono);
+  font: 12px "DM Sans Variable", sans-serif;
   color: #7f9878;
 }
 .principles p {
@@ -889,7 +883,7 @@ h2 {
   display: flex;
   align-items: end;
   justify-content: space-between;
-  margin: 40px 0 55px;
+  margin: 0 0 55px;
   gap: 30px;
 }
 .experience-heading > p {
@@ -942,7 +936,7 @@ h2 {
   font-size: 12px;
 }
 .intent-panel-title {
-  font-size: 8px;
+  font-size: 11px;
 }
 .demo-tabs button {
   font-size: 11px;
@@ -954,7 +948,7 @@ h2 {
   font-size: 11px;
 }
 .target-field .micro-label {
-  font-size: 7px;
+  font-size: 10px;
 }
 .demo-footnote {
   font-size: 9px;
@@ -1056,7 +1050,7 @@ h2 {
 }
 .token-copy h2 {
   font-size: clamp(40px, 4.4vw, 65px);
-  margin: 25px 0;
+  margin: 0 0 25px;
 }
 .token-copy > p:not(.fine-print) {
   font-size: 14px;
@@ -1123,7 +1117,7 @@ h2 {
   gap: 60px;
 }
 .faq-heading h2 {
-  margin-top: 25px;
+  margin-top: 0;
 }
 .faq-item {
   border-bottom: 1px solid #c0d3b721;
@@ -1136,7 +1130,7 @@ h2 {
   list-style: none;
   display: flex;
   align-items: center;
-  gap: 22px;
+  gap: 12px;
   font-size: 14px;
   cursor: pointer;
   line-height: 1.6;
@@ -1172,7 +1166,7 @@ h2 {
 }
 .closing h2 {
   font-size: clamp(50px, 7.2vw, 110px);
-  margin: 25px 0 38px;
+  margin: 0 0 38px;
 }
 .closing {
   isolation: isolate;
@@ -1539,7 +1533,7 @@ h2 {
     margin: 29px 0 27px;
   }
   .hero-status {
-    font-size: 7px;
+    font-size: 11px;
     gap: 8px;
     letter-spacing: 0.035em;
   }
@@ -1571,7 +1565,7 @@ h2 {
     gap: 16px;
   }
   .arc-signature span {
-    font-size: 7px;
+    font-size: 10px;
   }
   .arc-signature img {
     width: 53px;
@@ -1579,7 +1573,7 @@ h2 {
   .hero-bottom {
     left: 24px;
     right: 24px;
-    font-size: 6px;
+    font-size: 10px;
     bottom: 26px;
   }
   .hero-bottom > span {
@@ -1610,10 +1604,6 @@ h2 {
   }
   .capabilities-strip i {
     font-size: 14px;
-  }
-  .capabilities-strip i:last-of-type,
-  .capabilities-strip > div > span:last-child {
-    display: none;
   }
   .section-shell {
     padding-inline: 24px;
@@ -1793,7 +1783,7 @@ h2 {
     flex-shrink: 0;
   }
   .intent-panel-title {
-    font-size: 7px;
+    font-size: 10px;
   }
   .range-labels {
     font-size: 8px;
@@ -1911,10 +1901,7 @@ h2 {
     padding-top: 150px;
   }
   .hero-status {
-    font-size: 7px;
-  }
-  .status-version {
-    font-size: 6px;
+    font-size: 11px;
   }
   .nav-cta {
     padding: 11px;
@@ -1931,7 +1918,7 @@ h2 {
     font-size: 12px;
   }
   .hero-bottom {
-    font-size: 7px;
+    font-size: 10px;
   }
   .world-tags {
     font-size: 7px;
@@ -2104,8 +2091,8 @@ h2 {
   display: flex;
   align-items: center;
   gap: 10px;
-  font: 8px var(--mono);
-  letter-spacing: 0.07em;
+  font: 12px "DM Sans Variable", sans-serif;
+  letter-spacing: 0;
   color: #a6b89f;
 }
 .docs-top-label i,
@@ -2149,8 +2136,8 @@ h2 {
 .docs-nav-group > span {
   display: block;
   color: #758873;
-  font: 8px var(--mono);
-  letter-spacing: 0.12em;
+  font: 10px "DM Sans Variable", sans-serif;
+  letter-spacing: 0;
 }
 .docs-sidebar-label {
   padding: 0 11px 20px;
@@ -2160,7 +2147,7 @@ h2 {
 }
 .docs-nav-group > span {
   padding: 0 11px 8px;
-  font-size: 7px;
+  font-size: 10px;
 }
 .docs-nav-group a {
   width: 100%;
@@ -2192,8 +2179,8 @@ h2 {
   padding-top: 19px;
   border-top: 1px solid #c3d7bb20;
   color: #697b68;
-  font: 7px/2 var(--mono);
-  letter-spacing: 0.08em;
+  font: 11px/1.6 "DM Sans Variable", sans-serif;
+  letter-spacing: 0;
 }
 .docs-sidebar-foot i {
   margin-right: 7px;
@@ -2241,7 +2228,7 @@ h2 {
     500 clamp(55px, 8vw, 98px)/0.98 "Manrope Variable",
     sans-serif;
   letter-spacing: -0.075em;
-  margin: 22px 0;
+  margin: 0 0 22px;
 }
 .docs-intro h1 em {
   color: #b9d3ad;
@@ -2262,8 +2249,8 @@ h2 {
   gap: 16px;
   margin-top: 32px;
   color: #768771;
-  font: 8px var(--mono);
-  letter-spacing: 0.05em;
+  font: 11px "DM Sans Variable", sans-serif;
+  letter-spacing: 0;
 }
 .docs-status span:first-child {
   display: flex;
@@ -2283,7 +2270,7 @@ h2 {
 }
 .docs-section h2 {
   font-size: clamp(34px, 4vw, 48px);
-  margin: 18px 0 22px;
+  margin: 0 0 22px;
   line-height: 1.13;
 }
 .docs-section h2 em {
@@ -2666,7 +2653,7 @@ h2 {
     font-size: 14px;
   }
   .docs-status {
-    font-size: 7px;
+    font-size: 10px;
   }
   .docs-section {
     padding: 43px 0;

@@ -1,10 +1,10 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import gsap from "gsap";
-import { ComingSoon } from "./ComingSoon";
+import { Workspace } from "../p0/Workspace";
 import "./launch-experience.css";
 
 /** A finite brand transition, not a simulated network or wallet operation. */
-export function LaunchExperience() {
+export function LaunchExperience({ compact = false }: { compact?: boolean }) {
   const root = useRef<HTMLDivElement>(null);
   const destination = useRef<HTMLDivElement>(null);
   const [entering, setEntering] = useState(true);
@@ -30,6 +30,15 @@ export function LaunchExperience() {
       const timeline = gsap.timeline({ onComplete: finish });
       if (preference.matches) {
         timeline.to(".launch-overlay", { opacity: 0, duration: 0.16 });
+        return;
+      }
+      if (compact) {
+        timeline
+          .fromTo(".launch-wave i", { scaleY: 0.02, opacity: 0 }, { scaleY: 0.85, opacity: 0.8, duration: 0.32, stagger: { each: 0.006, from: "center" }, ease: "power3.out" }, 0)
+          .fromTo(".launch-monogram", { opacity: 0, scale: 0.78 }, { opacity: 1, scale: 1, duration: 0.35, ease: "power3.out" }, 0.1)
+          .fromTo(".launch-word span", { yPercent: 100, opacity: 0 }, { yPercent: 0, opacity: 1, duration: 0.24, stagger: 0.009 }, 0.18)
+          .fromTo(".launch-track i", { scaleX: 0 }, { scaleX: 1, duration: 0.48, ease: "power2.inOut" }, 0.05)
+          .to(".launch-overlay", { clipPath: "inset(0% 0% 100% 0%)", duration: 0.34, ease: "power3.inOut" }, 0.52);
         return;
       }
       timeline
@@ -68,16 +77,6 @@ export function LaunchExperience() {
             ease: "power3.out",
           },
           0.42,
-        )
-        .fromTo(
-          ".launch-caption",
-          { opacity: 0, y: 8 },
-          {
-            opacity: 1,
-            y: 0,
-            duration: 0.35,
-          },
-          0.65,
         )
         .fromTo(
           ".launch-track i",
@@ -128,7 +127,7 @@ export function LaunchExperience() {
       preference.removeEventListener("change", reduce);
       document.body.style.overflow = previousOverflow;
     };
-  }, []);
+  }, [compact]);
 
   return (
     <div ref={root} className="launch-experience">
@@ -137,7 +136,7 @@ export function LaunchExperience() {
         inert={entering}
         aria-hidden={entering || undefined}
       >
-        <ComingSoon />
+        <Workspace />
       </div>
       {entering && (
         <div
@@ -146,10 +145,6 @@ export function LaunchExperience() {
           aria-live="polite"
           aria-label="Entering MANDEVYR"
         >
-          <div className="launch-coordinate" aria-hidden="true">
-            <span>MV / APPLICATION</span>
-            <span>INTELLIGENCE IN MOTION</span>
-          </div>
           <div className="launch-wave" aria-hidden="true">
             {Array.from({ length: 36 }, (_, index) => (
               <i
@@ -169,14 +164,11 @@ export function LaunchExperience() {
                 <span key={index}>{letter}</span>
               ))}
             </div>
-            <p className="launch-caption">YOUR CAPITAL. YOUR COMMAND.</p>
           </div>
           <div className="launch-foot" aria-hidden="true">
-            <span>ENTERING MANDEVYR</span>
             <div className="launch-track">
               <i />
             </div>
-            <span>A NEW PERSPECTIVE.</span>
           </div>
         </div>
       )}

@@ -12,19 +12,20 @@ import { Brand } from "./Brand";
 import { Link, useLocation } from "react-router-dom";
 
 const chapters = [
-  { id: "introduction", label: "Introduction", group: "START HERE" },
-  { id: "quickstart", label: "Try the preview", group: "START HERE" },
-  { id: "product-model", label: "Product model", group: "START HERE" },
-  { id: "mandates", label: "Mandates", group: "THE WORKSPACE" },
-  { id: "preflight", label: "Preflight checks", group: "THE WORKSPACE" },
-  { id: "use-cases", label: "Use cases", group: "THE WORKSPACE" },
+  { id: "introduction", label: "Introduction", group: "Start here" },
+  { id: "quickstart", label: "Try the preview", group: "Start here" },
+  { id: "live-arc", label: "Live Arc registry", group: "Start here" },
+  { id: "product-model", label: "Product model", group: "Start here" },
+  { id: "mandates", label: "Mandates", group: "The workspace" },
+  { id: "preflight", label: "Preflight checks", group: "The workspace" },
+  { id: "use-cases", label: "Use cases", group: "The workspace" },
   {
     id: "trust-boundaries",
     label: "Trust boundaries",
-    group: "DESIGN PRINCIPLES",
+    group: "Design principles",
   },
-  { id: "token-roadmap", label: "Token & roadmap", group: "DESIGN PRINCIPLES" },
-  { id: "glossary", label: "Glossary & references", group: "MORE" },
+  { id: "token-roadmap", label: "Token & roadmap", group: "Design principles" },
+  { id: "glossary", label: "Glossary & references", group: "More" },
 ];
 
 export function DocsPage() {
@@ -33,7 +34,6 @@ export function DocsPage() {
   const [active, setActive] = useState("introduction");
 
   useEffect(() => {
-    document.title = "Documentation — MANDEVYR";
     window.scrollTo(0, 0);
   }, []);
 
@@ -82,9 +82,7 @@ export function DocsPage() {
         <Link to="/" className="docs-brand" aria-label="MANDEVYR home">
           <Brand />
         </Link>
-        <span className="docs-top-label">
-          <BookOpen size={15} /> PRODUCT DOCUMENTATION <i /> EARLY PREVIEW
-        </span>
+        <span className="docs-top-label"><BookOpen size={15} /> Documentation</span>
         <Link className="docs-close" to="/">
           <ArrowLeft size={15} />
           <span>Back to home</span>
@@ -92,7 +90,6 @@ export function DocsPage() {
       </header>
       <div className="docs-frame">
         <aside className="docs-sidebar" aria-label="Documentation chapters">
-          <span className="docs-sidebar-label">ON THIS PAGE</span>
           {groups.map((group) => (
             <div className="docs-nav-group" key={group}>
               <span>{group}</span>
@@ -113,11 +110,7 @@ export function DocsPage() {
                 ))}
             </div>
           ))}
-          <div className="docs-sidebar-foot">
-            <i /> PRODUCT STATUS
-            <br />
-            <strong>Early concept</strong>
-          </div>
+          <div className="docs-sidebar-foot">Read-only preview</div>
         </aside>
 
         <main
@@ -128,14 +121,6 @@ export function DocsPage() {
         >
           <article className="docs-article">
             <section className="docs-intro" id="doc-introduction">
-              <div className="docs-breadcrumb">
-                <span>MANDEVYR</span>
-                <ChevronRight size={12} />
-                <span>DOCUMENTATION</span>
-              </div>
-              <span className="eyebrow">
-                A DECISION WORKSPACE FOR ONCHAIN FINANCE
-              </span>
               <h1>
                 Move with
                 <br />
@@ -149,14 +134,13 @@ export function DocsPage() {
               </p>
               <div className="docs-status">
                 <span>
-                  <i /> IN DEVELOPMENT
+                  <i /> In development
                 </span>
-                <span>LAST UPDATED · 30 SEP 2026</span>
+                <span>Updated Sep 30, 2026</span>
               </div>
             </section>
 
             <section className="docs-section" id="doc-quickstart">
-              <span className="docs-index">GET STARTED / THREE MINUTES</span>
               <h2>
                 Your first <em>preflight.</em>
               </h2>
@@ -220,8 +204,41 @@ export function DocsPage() {
               </a>
             </section>
 
+            <section className="docs-section" id="doc-live-arc">
+              <h2>
+                An Arc registry <em>with receipts.</em>
+              </h2>
+              <p>
+                The app lists three Morpho vaults on Arc Mainnet from a fixed,
+                reviewed address list. A read-only Worker asks Arc RPC for the
+                contract code, base asset, token decimals, total assets, block
+                number, and block time. Each vault links to its Morpho page and
+                Arc explorer address so you can inspect the same source.
+              </p>
+              <p>
+                Contract and asset checks tell you whether the address still
+                matches the reviewed entry. They do not certify a vault's
+                security, liquidity, or suitability. A failed or old read is
+                marked unavailable or stale. APY stays hidden until a rate
+                source, fee treatment, and time window are verified.
+              </p>
+              <div className="docs-callout">
+                <span>WALLET & EXIT DATA</span>
+                <p>
+                  Wallet connection is optional. The app reads one native Arc
+                  USDC balance and vault shares without requesting a signature.
+                  Morpho Vault V2's default maxWithdraw value is always zero,
+                  so P0 marks immediate withdrawal capacity unknown rather
+                  than presenting that zero as a liquidity verdict. Your
+                  watchlist and selected wallet preference stay in this browser.
+                </p>
+              </div>
+              <a className="docs-inline-link" href="/app/explore">
+                Open the live registry <ArrowUpRight size={14} />
+              </a>
+            </section>
+
             <section className="docs-section" id="doc-product-model">
-              <span className="docs-index">01 — PRODUCT MODEL</span>
               <h2>
                 A workspace around <em>your mandate.</em>
               </h2>
@@ -256,7 +273,6 @@ export function DocsPage() {
             </section>
 
             <section className="docs-section" id="doc-mandates">
-              <span className="docs-index">02 — PERSONAL RULES</span>
               <h2>
                 Make your boundaries <em>explicit.</em>
               </h2>
@@ -295,7 +311,6 @@ export function DocsPage() {
             </section>
 
             <section className="docs-section" id="doc-preflight">
-              <span className="docs-index">03 — BEFORE AN ACTION</span>
               <h2>
                 Preflight makes the <em>reasoning visible.</em>
               </h2>
@@ -336,14 +351,13 @@ export function DocsPage() {
             </section>
 
             <section className="docs-section" id="doc-use-cases">
-              <span className="docs-index">04 — THREE PRODUCT AREAS</span>
               <h2>
                 One set of rules.
                 <br />
                 <em>Many kinds of move.</em>
               </h2>
               <div className="docs-usecase">
-                <span>01 / YIELD INTELLIGENCE</span>
+                <span>Yield intelligence</span>
                 <h3>Understand the opportunity.</h3>
                 <p>
                   A future view could collect information about a yield
@@ -356,7 +370,7 @@ export function DocsPage() {
                 </a>
               </div>
               <div className="docs-usecase">
-                <span>02 / AGENT PAYMENTS WITH x402</span>
+                <span>Agent payments with x402</span>
                 <h3>Put a budget around paid requests.</h3>
                 <p>
                   x402 is an open protocol for requesting and settling payment
@@ -374,7 +388,7 @@ export function DocsPage() {
                 </a>
               </div>
               <div className="docs-usecase">
-                <span>03 / TOKENIZED ASSETS</span>
+                <span>Tokenized assets</span>
                 <h3>Look past the ticker.</h3>
                 <p>
                   A future asset review could surface issuer information, access
@@ -387,7 +401,6 @@ export function DocsPage() {
             </section>
 
             <section className="docs-section" id="doc-trust-boundaries">
-              <span className="docs-index">05 — TRUST & CONTROL</span>
               <h2>
                 Clarity first.
                 <br />
@@ -401,9 +414,10 @@ export function DocsPage() {
               <div className="docs-callout">
                 <span>CURRENT STATUS</span>
                 <p>
-                  This is an early product concept. There is no live wallet
-                  connection, account system, backend, market-data feed,
-                  automated agent, payment flow, or transaction on this site.
+                  P0 has a read-only Arc data service and optional browser
+                  wallet connection. The landing preflight remains a local
+                  example. There is no account system, automated agent,
+                  payment flow, or transaction in the workspace.
                 </p>
               </div>
               <p>
@@ -415,24 +429,24 @@ export function DocsPage() {
             </section>
 
             <section className="docs-section" id="doc-token-roadmap">
-              <span className="docs-index">06 — ROADMAP & TOKEN</span>
               <h2>
                 Usefulness <em>comes first.</em>
               </h2>
               <div className="docs-roadmap">
                 <div>
                   <span>NOW</span>
-                  <strong>Foundation</strong>
+                  <strong>Read-only foundation</strong>
                   <p>
-                    Landing page, product narrative, and local preflight
-                    concept.
+                    Landing page, local preflight concept, curated Arc vault
+                    registry, evidence details, and optional wallet view.
                   </p>
                 </div>
                 <div>
                   <span>NEXT</span>
                   <strong>Intelligence</strong>
                   <p>
-                    Explore curated data, mandates, evidence, and alert designs.
+                    Build mandates, deterministic preflight, evidence reports,
+                    and alert designs.
                   </p>
                 </div>
                 <div>
@@ -470,7 +484,6 @@ export function DocsPage() {
             </section>
 
             <section className="docs-section docs-last" id="doc-glossary">
-              <span className="docs-index">07 — REFERENCE</span>
               <h2>
                 A few useful <em>terms.</em>
               </h2>

@@ -5,23 +5,38 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#090d0c" />
     <link rel="icon" type="image/png" href="/logo-remove-bg.png" />
-    <meta
-      name="description"
-      content="Onchain intelligence. Human control. Explore the MANDEVYR vision for yield, tokenized assets, and agent payments on Arc. Your mandate. Your final say."
-    />
-    <meta
-      property="og:title"
-      content="MANDEVYR — Your capital. Your command."
-    />
-    <meta
-      property="og:description"
-      content="A clearer view of yield, tokenized assets, and agent payments. Explore the interactive preflight concept."
-    />
+    <link rel="canonical" href="https://www.mandevyr.my.id/" />
+    <meta name="robots" content="index,follow,max-image-preview:large" />
+    <meta name="description" content="MANDEVYR is an Arc decision workspace. Explore curated Morpho vaults with live onchain source checks, an optional wallet view, and a personal watchlist." />
     <meta property="og:type" content="website" />
-    <title>MANDEVYR — Your capital. Your command.</title>
+    <meta property="og:site_name" content="MANDEVYR" />
+    <meta property="og:title" content="MANDEVYR | Explore Morpho Vaults on Arc" />
+    <meta property="og:description" content="Explore Arc vaults with source checks, an optional wallet view, and a personal watchlist. See the evidence before your next move." />
+    <meta property="og:url" content="https://www.mandevyr.my.id/" />
+    <meta property="og:image" content="https://www.mandevyr.my.id/og-mandevyr.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="MANDEVYR — A clearer view of Morpho vaults on Arc" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@mandevyrfi" />
+    <meta name="twitter:title" content="MANDEVYR | Explore Morpho Vaults on Arc" />
+    <meta name="twitter:description" content="Explore Arc vaults with source checks, an optional wallet view, and a personal watchlist." />
+    <meta name="twitter:image" content="https://www.mandevyr.my.id/og-mandevyr.png" />
+    <title>MANDEVYR | Explore Morpho Vaults on Arc</title>
+    <style>
+      html, body { margin: 0; min-height: 100%; background: #090d0c; }
+      #root > .boot { position: fixed; inset: 0; display: grid; place-items: center; background: #090d0c; }
+      .boot img { width: 72px; height: 72px; object-fit: contain; border-radius: 50%; background: #e9f2e7; padding: 8px; box-sizing: border-box; box-shadow: 0 0 60px #8bc99a22; }
+      .boot::after { content: ""; position: absolute; width: 108px; height: 108px; border: 1px solid #a4d8a450; border-radius: 50%; animation: boot-pulse 1.7s ease-in-out infinite; }
+      @keyframes boot-pulse { 50% { transform: scale(1.12); opacity: .35; } }
+      @media (prefers-reduced-motion: reduce) { .boot::after { animation: none; } }
+    </style>
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"MANDEVYR","url":"https://www.mandevyr.my.id/","logo":"https://www.mandevyr.my.id/logo-remove-bg.png","sameAs":["https://x.com/mandevyrfi","https://t.me/mandevyrfi"]}</script>
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"MANDEVYR","url":"https://www.mandevyr.my.id/","description":"Arc vault research and onchain decision workspace","publisher":{"@type":"Organization","name":"MANDEVYR"}}</script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><!-- ROOT_BOOT_START --><div class="boot" aria-label="MANDEVYR is loading"><img src="/logo-remove-bg.png" alt="MANDEVYR" /></div><!-- ROOT_BOOT_END --></div>
+    <noscript><main style="padding:24px;color:#e9eee5;font:18px Arial,sans-serif"><h1>MANDEVYR</h1><p>Explore Morpho vaults on Arc with source checks and a personal watchlist. Please enable JavaScript to use the workspace.</p></main></noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -12,7 +12,7 @@
   gap: 20px;
 }
 .docs-top-label {
-  font-size: 9px;
+  font-size: 12px;
 }
 .docs-frame {
   grid-template-columns: 255px minmax(0, 1fr) 2px;

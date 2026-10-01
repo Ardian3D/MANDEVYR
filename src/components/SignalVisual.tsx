@@ -3,17 +3,11 @@ import { ArrowUpRight, Check, Fingerprint, Zap } from "lucide-react";
 export function SignalVisual({ mode }: { mode: number }) {
   return (
     <div className={`signal-visual mode-${mode}`}>
-      <div className="signal-head">
-        <span>
-          <i /> MANDATE ENGINE
-        </span>
-        <span>ILLUSTRATIVE SIGNALS</span>
-      </div>
       <div className="signal-stage">
         <div className="signal-grid" />
         <div className="chart-scene" aria-hidden={mode !== 0}>
           <div className="chart-caption">
-            <span>USDC / OPPORTUNITY MAP</span>
+            <span>Example USDC opportunities</span>
             <strong>
               Evidence before exposure.
               <ArrowUpRight size={17} />
@@ -55,7 +49,7 @@ export function SignalVisual({ mode }: { mode: number }) {
           <span className="packet packet-2" />
           <span className="packet packet-3" />
           <div className="payment-amount">
-            <small>PER REQUEST · EXAMPLE</small>
+            <small>Example cost per request</small>
             <strong>
               0.02 <span>USDC</span>
             </strong>
@@ -94,17 +88,6 @@ export function SignalVisual({ mode }: { mode: number }) {
             </div>
           </div>
         </div>
-      </div>
-      <div className="signal-bottom">
-        <span>
-          01 <i /> Observe
-        </span>
-        <span>
-          02 <i /> Verify
-        </span>
-        <span>
-          03 <i /> You approve <Check size={12} />
-        </span>
       </div>
     </div>
   );

@@ -6,7 +6,6 @@ import { FlowField } from "./FlowField";
 
 export function ComingSoon() {
   useEffect(() => {
-    document.title = "Coming Soon — MANDEVYR";
     window.scrollTo(0, 0);
   }, []);
   return (
@@ -23,15 +22,11 @@ export function ComingSoon() {
         </Link>
       </header>
       <main className="coming-main">
-        <div className="coming-status">
-          <span className="status-dot" /> THE WORKSPACE IS TAKING SHAPE
-        </div>
         <div className="coming-emblem" aria-hidden="true">
           <span />
           <span />
           <img src="/logo-remove-bg.png" width="64" height="64" alt="" />
         </div>
-        <span className="eyebrow">MANDEVYR / APPLICATION</span>
         <h1 tabIndex={-1}>
           Coming <em>Soon.</em>
         </h1>
@@ -62,7 +57,6 @@ export function ComingSoon() {
         </p>
       </main>
       <footer className="coming-footer">
-        <span>INTELLIGENCE IN MOTION. CONTROL IN YOUR HANDS.</span>
         <a href="https://www.arc.io/" target="_blank" rel="noreferrer">
           <span>BEING BUILT FOR</span>
           <img src="/brand/arc-ondark.svg" alt="Arc" width="55" height="24" />

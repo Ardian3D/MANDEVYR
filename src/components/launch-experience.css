@@ -37,6 +37,7 @@
 }
 .launch-foot {
   bottom: 38px;
+  justify-content: center;
 }
 .launch-wave {
   position: absolute;
@@ -126,7 +127,7 @@
 .launch-track {
   height: 1px;
   background: #acc99125;
-  flex: 1;
+  flex: 0 1 360px;
   max-width: 360px;
   overflow: hidden;
 }

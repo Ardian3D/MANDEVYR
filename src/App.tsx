@@ -21,30 +21,27 @@ type Document = "vision" | "roadmap" | "privacy";
 const copyrightYear = new Date().getFullYear();
 const documentContent = {
   vision: {
-    eyebrow: "THE MANDEVYR THESIS",
     title: "Intelligence should answer to you.",
     paragraphs: [
       "Onchain finance is opening up to people and agents alike. But an opportunity is only useful when you can understand its terms, its evidence, and its place inside your own boundaries.",
       "MANDEVYR is being built as a decision workspace for Arc. A mandate captures your limits. A preflight checks a proposed move. An evidence trail makes the reasoning visible. You decide what happens next.",
-      "The first release focuses on curated, read-only intelligence and transparent preflight checks. Wallet-approved actions, x402 services, and token utility follow in stages. This site demonstrates the concept; live financial integrations are not available here yet.",
+      "The first release now includes a read-only Arc vault registry, source checks, an optional wallet view, and a local watchlist. The landing preflight remains an illustrative demo. Wallet-approved actions, x402 services, and token utility follow in later stages.",
     ],
   },
   roadmap: {
-    eyebrow: "A PRODUCT-LED ROADMAP",
     title: "Build the usefulness first.",
     paragraphs: [
-      "01 / Foundation — Brand, landing experience, and an interactive preflight concept. This is the current stage.",
-      "02 / Intelligence — Curated Arc data, personal mandates, evidence-backed reports, and useful alerts.",
+      "01 / Foundation — Brand, landing experience, and a read-only Arc opportunity workspace. This stage is live locally.",
+      "02 / Intelligence — Personal mandates, evidence-backed reports, and useful alerts.",
       "03 / Actions & API — Wallet-approved actions and metered x402 services, after integration and security checks.",
       "04 / Token utility — A planned launch through Argus, with working benefits and transparent terms. Report credits, expanded monitoring, and API access are proposed utilities. No token contract, supply, launch date, or holder benefits have been finalized.",
     ],
   },
   privacy: {
-    eyebrow: "THIS WEBSITE",
     title: "Explore without handing over your data.",
     paragraphs: [
-      "The interactive preview runs in your browser using illustrative data. It does not connect a wallet, ask for an email address, collect a payment, or submit a transaction.",
-      "This version has no analytics trackers or third-party font requests. Your preview settings reset when the page reloads. Standard hosting access logs may be processed by the hosting provider when this website is deployed.",
+      "The landing preflight uses illustrative browser-only data. In the app, wallet connection is optional and read-only. If you connect, your public address is sent to the MANDEVYR read API, which reads Arc RPC. No signature, payment, or transaction is requested.",
+      "Your watchlist and selected wallet preference are stored in this browser. This version has no analytics trackers or third-party font requests. Standard hosting access logs may be processed by the hosting provider when this website is deployed.",
       "External links to Arc and Argus lead to independent websites with their own terms. A full product privacy notice will accompany any future accounts, alerts, or financial integrations.",
     ],
   },
@@ -57,7 +54,7 @@ const faqs = [
   ],
   [
     "Can I use the product right now?",
-    "You can try the interactive preflight on this page. It uses illustrative data to show how spending limits and source freshness affect a decision. Live data, wallet connections, and transactions are part of the next development stages.",
+    "Yes. Launch App opens a read-only Arc vault registry with live contract observations, source links, a local watchlist, and an optional wallet view. The preflight on this landing page remains illustrative. Transactions are not available yet.",
   ],
   [
     "Will an agent have control of my funds?",
@@ -110,7 +107,6 @@ function App() {
   const story = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    document.title = "MANDEVYR — Your capital. Your command.";
     const close = (event: KeyboardEvent) => {
       if (event.key === "Escape") setMenuOpen(false);
     };
@@ -268,20 +264,9 @@ function App() {
           <div className="hero-sculpture">
             <FlowField motion />
           </div>
-          <div className="hero-coordinate coordinate-left">
-            MV / 001
-            <br />
-            <span>INTELLIGENCE IN MOTION</span>
-          </div>
-          <div className="hero-coordinate coordinate-right">
-            YOUR RULES.
-            <br />
-            <span>EVERY SINGLE MOVE.</span>
-          </div>
           <div className="hero-copy">
             <div className="hero-enter hero-status">
-              <span className="status-dot" /> AGENTIC FINANCE, REFRAMED{" "}
-              <span className="status-version">EARLY PREVIEW</span>
+              <span className="status-dot" /> Early preview
             </div>
             <h1 className="hero-enter">
               Your capital.
@@ -307,7 +292,7 @@ function App() {
               rel="noreferrer"
               className="hero-enter arc-signature"
             >
-              <span>BEING BUILT FOR ARC NETWORK</span>
+              <span>Built for Arc</span>
               <img
                 src="/brand/arc-ondark.svg"
                 alt="Arc"
@@ -316,26 +301,13 @@ function App() {
               />
             </a>
           </div>
-          <div className="hero-bottom">
-            <span>
-              <i /> HUMAN CONTROL. ONCHAIN POSSIBILITY.
-            </span>
-            <a href="#worlds">
-              SCROLL TO DISCOVER <ArrowDown size={13} />
-            </a>
-            <span>01 — 05</span>
-          </div>
         </section>
 
         <div className="capabilities-strip" aria-label="Product focus">
-          <span>ONE WORKSPACE. MORE POSSIBILITY.</span>
           <div>
             <span>Yield intelligence</span>
-            <i>✳</i>
             <span>Agent payments</span>
-            <i>✳</i>
             <span>Tokenized assets</span>
-            <i>✳</i>
             <span>Your mandate</span>
           </div>
         </div>
@@ -347,16 +319,8 @@ function App() {
           data-chapter="Possibilities"
         >
           <div className="worlds-sticky">
-            <div className="section-topline">
-              <span className="eyebrow">01 / A CONNECTED FINANCIAL WORLD</span>
-              <span className="mono">THREE PATHS. ONE PERSONAL MANDATE.</span>
-            </div>
             <div className="world-layout">
               <div className="world-copy">
-                <span className="world-number">
-                  0{mode + 1}
-                  <span>/ 03</span>
-                </span>
                 <div key={mode} className="world-text">
                   <h2>
                     {world.title}
@@ -391,7 +355,6 @@ function App() {
                   aria-pressed={mode === index}
                   onClick={() => chooseWorld(index)}
                 >
-                  <span>0{index + 1}</span>
                   {item.short}
                   <ArrowUpRight size={16} />
                 </button>
@@ -409,7 +372,6 @@ function App() {
             <i />
             <i />
           </div>
-          <span className="eyebrow reveal">AUTONOMY, WITH BOUNDARIES.</span>
           <h2 className="reveal">
             Agents move fast.
             <br />
@@ -417,7 +379,7 @@ function App() {
           </h2>
           <div className="principles reveal">
             <div>
-              <span>01 / DEFINE</span>
+              <span>Define</span>
               <p>
                 Your budget.
                 <br />
@@ -426,7 +388,7 @@ function App() {
             </div>
             <ArrowRight />
             <div>
-              <span>02 / VERIFY</span>
+              <span>Verify</span>
               <p>
                 Visible evidence.
                 <br />
@@ -435,7 +397,7 @@ function App() {
             </div>
             <ArrowRight />
             <div>
-              <span>03 / DECIDE</span>
+              <span>Decide</span>
               <p>
                 Your wallet.
                 <br />
@@ -450,12 +412,6 @@ function App() {
           className="experience section-shell"
           data-chapter="Experience"
         >
-          <div className="section-topline reveal">
-            <span className="eyebrow">02 / FROM INTENT TO INSIGHT</span>
-            <span className="mono">
-              <i className="status-dot" /> INTERACTIVE CONCEPT
-            </span>
-          </div>
           <div className="experience-heading reveal">
             <h2>
               Make a move.
@@ -487,10 +443,8 @@ function App() {
             <div className="token-medallion">
               <img src="/logo-remove-bg.png" alt="" width="160" height="160" />
             </div>
-            <span className="token-coordinate">UTILITY AT THE CENTER.</span>
           </div>
           <div className="token-copy reveal">
-            <span className="eyebrow">03 / THE MANDEVYR TOKEN</span>
             <h2>
               A part of
               <br />
@@ -502,15 +456,15 @@ function App() {
             </p>
             <div className="utility-list">
               <span>
-                01 <strong>Report credits</strong>
+                <strong>Report credits</strong>
                 <ArrowUpRight size={16} />
               </span>
               <span>
-                02 <strong>Expanded monitoring</strong>
+                <strong>Expanded monitoring</strong>
                 <ArrowUpRight size={16} />
               </span>
               <span>
-                03 <strong>Metered API access</strong>
+                <strong>Metered API access</strong>
                 <ArrowUpRight size={16} />
               </span>
             </div>
@@ -532,7 +486,6 @@ function App() {
 
         <section className="faq-section section-shell">
           <div className="faq-heading reveal">
-            <span className="eyebrow">04 / A LITTLE MORE CLARITY</span>
             <h2>
               Good
               <br />
@@ -540,10 +493,9 @@ function App() {
             </h2>
           </div>
           <div className="faq-list reveal">
-            {faqs.map(([question, answer], index) => (
+            {faqs.map(([question, answer]) => (
               <details className="faq-item" key={question}>
                 <summary>
-                  <span className="faq-number">0{index + 1}</span>
                   {question}
                   <Plus size={18} />
                 </summary>
@@ -555,7 +507,6 @@ function App() {
 
         <section className="closing" data-chapter="Explore">
           <HoverGrid />
-          <span className="eyebrow reveal">THE NEXT MOVE IS YOURS.</span>
           <h2 className="reveal">
             Stay curious.
             <br />
@@ -616,7 +567,6 @@ function App() {
         </div>
       </footer>
       <nav className="chapter-nav" aria-label="Page chapters">
-        <span>{section}</span>
         {[
           ["Intro", "#"],
           ["Possibilities", "#worlds"],
@@ -651,9 +601,6 @@ function App() {
           >
             <X size={20} />
           </button>
-          <span className="eyebrow">
-            {documentContent[activeDocument].eyebrow}
-          </span>
           <h2 id="document-title">{documentContent[activeDocument].title}</h2>
           {activeDocument === "roadmap" ? (
             <ol className="modal-roadmap">

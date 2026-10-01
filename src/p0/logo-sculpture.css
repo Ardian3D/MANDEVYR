@@ -1,0 +1,33 @@
+.p0-hero-copy { max-width: 60%; }
+.p0-sculpture { position: absolute; right: 2%; top: 50%; transform: translateY(-50%); width: 35%; max-width: 440px; height: 350px; isolation: isolate; }
+.p0-sculpture::before { content: ""; position: absolute; inset: 8%; border-radius: 50%; background: radial-gradient(ellipse, #92dfb729, transparent 68%); pointer-events: none; }
+.p0-sculpture-orbit { position: absolute; inset: 13%; border: 1px solid #c8e0b81c; border-radius: 50%; transform: rotate(-24deg) scaleY(.7); pointer-events: none; }
+.p0-sculpture-orbit::after { content: ""; position: absolute; width: 5px; height: 5px; background: #bddba9; border-radius: 50%; top: 21%; left: 8%; box-shadow: 0 0 12px #bcdfac; }
+.p0-sculpture-stage { position: absolute; inset: 0; outline: none; border-radius: 12px; touch-action: pan-y; }
+.p0-sculpture-ready .p0-sculpture-stage { cursor: grab; }
+.p0-sculpture-stage[data-dragging] { cursor: grabbing; }
+.p0-sculpture-stage:focus-visible { outline: 1px solid #b7d99a; outline-offset: -12px; }
+.p0-sculpture-stage canvas { width: 100%; height: 100%; display: block; }
+.p0-sculpture-poster { position: absolute; width: 52%; height: 60%; object-fit: contain; left: 24%; top: 20%; transform: perspective(600px) rotateY(-24deg) rotateZ(-5deg); filter: drop-shadow(9px 9px 0 #0b211b); }
+.p0-sculpture-fallback canvas { display: none; }
+.p0-vault-logo { position: relative; width: 46px; height: 46px; flex: 0 0 auto; }
+.p0-curator-logo { display: block; width: 100%; height: 100%; object-fit: contain; border-radius: 50%; background: #fff; }
+.p0-token-badge { position: absolute; width: 20px; height: 20px; bottom: -3px; right: -4px; border: 2px solid #111711; border-radius: 50%; background: white; }
+.p0-vault-logo-fallback { display: grid; place-items: center; width: 100%; height: 100%; border-radius: 50%; background: #293826; }
+.p0-detail-title .p0-vault-logo { width: 60px; height: 60px; }
+.p0-detail-title .p0-token-badge { width: 24px; height: 24px; }
+@media (min-width: 1024px) {
+  .p0-sculpture-stage { inset: -45px -20px; }
+  .p0-sculpture-orbit { inset: 7%; }
+}
+@media (max-width: 1120px) and (min-width: 901px) {
+  .p0-sculpture { right: 0; width: 38%; }
+  .p0-hero-copy { max-width: 64%; }
+  .p0-hero-actions { flex-wrap: wrap; gap: 12px; }
+}
+@media (max-width: 680px) {
+  .p0-detail-title .p0-vault-logo { width: 45px; height: 45px; }
+  .p0-hero { flex-direction: column; }
+  .p0-hero-copy { max-width: 100%; }
+  .p0-sculpture { position: relative; top: auto; right: auto; transform: none; width: 100%; max-width: none; height: 265px; margin: 12px auto -9px; }
+}

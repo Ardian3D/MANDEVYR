@@ -41,7 +41,7 @@
   border-radius: 4px;
   padding: 4px 6px;
   color: #9bb8a0;
-  font-size: 6px;
+  font-size: 10px;
 }
 .demo-layout {
   display: grid;
@@ -160,8 +160,8 @@
   justify-content: space-between;
   gap: 10px;
   color: #86a28d;
-  font-size: 6px;
-  letter-spacing: 1px;
+  font-size: 11px;
+  letter-spacing: 0;
   margin-bottom: 20px;
 }
 .intent-panel h4 {
@@ -193,8 +193,8 @@
   color: #b1d9bd;
 }
 .target-field .micro-label {
-  font-size: 5px;
-  letter-spacing: 0.75px;
+  font-size: 10px;
+  letter-spacing: 0;
 }
 .target-field strong {
   display: block;
@@ -424,7 +424,7 @@
   font-size: 11px;
 }
 .intent-panel-title {
-  font-size: 8px;
+  font-size: 11px;
 }
 .intent-panel > p {
   font-size: 11px;
@@ -434,7 +434,7 @@
   font-size: 11px;
 }
 .target-field .micro-label {
-  font-size: 6px;
+  font-size: 10px;
 }
 .amount-label {
   font-size: 11px;
