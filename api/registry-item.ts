@@ -6,3 +6,5 @@ export function GET(request: Request) {
   const url = new URL(`/api/registry/${encodeURIComponent(id)}`, request.url);
   return app.fetch(new Request(url, request));
 }
+
+export default { fetch: GET };
