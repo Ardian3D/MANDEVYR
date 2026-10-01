@@ -1,4 +1,4 @@
-import app from "../src/worker";
+import app from "../src/worker/index.ts";
 
 export function GET(request: Request) {
   const address = new URL(request.url).searchParams.get("address");

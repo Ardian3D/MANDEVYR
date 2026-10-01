@@ -8,8 +8,8 @@ import {
   type VaultDefinition,
   type VaultSnapshot,
   type WalletSnapshot,
-} from "../p0/registry";
-import { evidenceStatus, sourceMatches } from "../p0/evidence";
+} from "../p0/registry.ts";
+import { evidenceStatus, sourceMatches } from "../p0/evidence.ts";
 
 const app = new Hono();
 const client = createPublicClient({
