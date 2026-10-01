@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import {
   ArrowDownRight,
@@ -20,6 +20,10 @@ import {
   RefreshCw,
   Search,
   ShieldCheck,
+  SlidersHorizontal,
+  ClipboardCheck,
+  History,
+  Bell,
   Wallet,
   X,
 } from "lucide-react";
@@ -40,12 +44,14 @@ import {
 } from "./wallets";
 import { LogoSculpture } from "./LogoSculpture";
 import { VaultLogo } from "./VaultLogo";
+import { P1_ENABLED } from "../p1/config";
 import "./workspace.css";
 import "./logo-sculpture.css";
 
 const WATCHLIST_KEY = "mandevyr:p0:watchlist";
 const ACTIVE_WALLET_KEY = "mandevyr:p0:wallet";
 const EMPTY_ENTRIES: VaultSnapshot[] = [];
+const P1Panel = lazy(() => import("../p1/P1Panel").then((module) => ({ default: module.P1Panel })));
 
 function shortAddress(value: string) {
   return `${value.slice(0, 6)}…${value.slice(-4)}`;
@@ -104,6 +110,8 @@ function EmptyState({ title, children, onReset }: { title: string; children: Rea
 export function Workspace() {
   const location = useLocation();
   const { id } = useParams();
+  const opportunityId = location.pathname.startsWith("/app/opportunities/") ? id : undefined;
+  const isP1 = ["/app/mandate", "/app/preflight/new", "/app/history", "/app/watch"].includes(location.pathname) || location.pathname.startsWith("/app/preflight/");
   const [data, setData] = useState<RegistryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -288,7 +296,7 @@ export function Workspace() {
   const walletView = wallet && walletChain === 5042 && walletData?.address.toLowerCase() === wallet.toLowerCase() ? walletData : null;
   const fresh = entries.filter((item) => evidenceStatus(item, now) === "fresh").length;
   const watched = entries.filter((item) => watchlist.includes(item.id));
-  const selected = id ? entries.find((item) => item.id === id) : undefined;
+  const selected = opportunityId ? entries.find((item) => item.id === opportunityId) : undefined;
   const isWatchlist = location.pathname === "/app/watchlist";
   const filtered = (isWatchlist ? watched : entries).filter((item) => {
       const position = walletView?.positions.find((record) => record.vaultId === item.id);
@@ -310,8 +318,14 @@ export function Workspace() {
       <Link to="/" className="p0-brand" aria-label="MANDEVYR home"><Brand /></Link>
       <nav className="p0-nav" aria-label="Workspace navigation">
         <Link to="/app" onClick={() => setMenuOpen(false)} className={location.pathname === "/app" ? "active" : ""}><Layers3 size={18} /> Overview</Link>
-        <Link to="/app/explore" onClick={() => setMenuOpen(false)} className={location.pathname === "/app/explore" || Boolean(id) ? "active" : ""}><Globe2 size={18} /> Explore <span>{entries.length || "—"}</span></Link>
+        <Link to="/app/explore" onClick={() => setMenuOpen(false)} className={location.pathname === "/app/explore" || Boolean(opportunityId) ? "active" : ""}><Globe2 size={18} /> Explore <span>{entries.length || "—"}</span></Link>
         <Link to="/app/watchlist" onClick={() => setMenuOpen(false)} className={isWatchlist ? "active" : ""}><Bookmark size={18} /> Watchlist <span>{watchlist.length}</span></Link>
+        {P1_ENABLED && <>
+          <Link to="/app/mandate" onClick={() => setMenuOpen(false)} className={location.pathname === "/app/mandate" ? "active" : ""}><SlidersHorizontal size={18} /> Mandate</Link>
+          <Link to="/app/preflight/new" onClick={() => setMenuOpen(false)} className={location.pathname.startsWith("/app/preflight") ? "active" : ""}><ClipboardCheck size={18} /> Preflight</Link>
+          <Link to="/app/watch" onClick={() => setMenuOpen(false)} className={location.pathname === "/app/watch" ? "active" : ""}><Bell size={18} /> Watchtower</Link>
+          <Link to="/app/history" onClick={() => setMenuOpen(false)} className={location.pathname === "/app/history" ? "active" : ""}><History size={18} /> History</Link>
+        </>}
       </nav>
         <div className="p0-side-foot">
           <div className="p0-network-mark"><span className="p0-pulse" /> Read only on Arc</div>
@@ -322,7 +336,7 @@ export function Workspace() {
     <div className="p0-main">
       <header className="p0-topbar">
         <button className="p0-mobile-menu" type="button" onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? "Close menu" : "Open menu"}>{menuOpen ? <X size={20} /> : <Menu size={20} />}</button>
-        <div className="p0-breadcrumb"><Link to="/app">MANDEVYR</Link><span>/</span><span>{id ? "Opportunity" : isWatchlist ? "Watchlist" : location.pathname === "/app/explore" ? "Explore" : "Overview"}</span></div>
+        <div className="p0-breadcrumb"><Link to="/app">MANDEVYR</Link><span>/</span><span>{opportunityId ? "Opportunity" : isP1 ? location.pathname === "/app/mandate" ? "Mandate" : location.pathname === "/app/watch" ? "Watchtower" : location.pathname === "/app/history" ? "History" : "Preflight" : isWatchlist ? "Watchlist" : location.pathname === "/app/explore" ? "Explore" : "Overview"}</span></div>
         <div className="p0-top-actions">
           <span className="p0-mainnet-label"><span /> Arc Mainnet</span>
           {wallet ? walletChain === 5042 ? <button type="button" className="p0-wallet-connected" onClick={openWalletDialog} aria-label={`Wallet ${shortAddress(wallet)}. Open wallet menu`}><Wallet size={15} /> {shortAddress(wallet)} <ChevronDown size={13} /></button> : <><button type="button" className="p0-wallet-switch" onClick={() => void switchArc()} disabled={walletBusy}>Switch to Arc <ArrowRight size={15} /></button><button type="button" className="p0-wallet-change" onClick={openWalletDialog} aria-label="Choose another wallet"><Wallet size={17} /></button></> : <button type="button" className="p0-wallet-button" onClick={openWalletDialog}><Wallet size={16} /> Connect wallet</button>}
@@ -331,9 +345,9 @@ export function Workspace() {
       {walletError && !walletDialogOpen && <div className="p0-inline-alert" role="alert"><CircleAlert size={17} />{walletError}<button onClick={() => setWalletError(null)} aria-label="Dismiss wallet message"><X size={15} /></button></div>}
       {wallet && walletChain !== 5042 && <div className="p0-inline-alert" role="status"><CircleAlert size={17} />Your wallet is on another network. Switch to Arc to view your balance and vault positions.</div>}
       {loadError && <div className="p0-inline-alert" role="alert"><CircleAlert size={17} />{loadError} <button type="button" onClick={() => void fetchRegistry()}>Retry <RefreshCw size={14} /></button></div>}
-      {id ? <section className="p0-content">{loading ? <div className="p0-loading" role="status"><LoaderCircle size={24} className="spin" /> Checking Arc data…</div> : selected ? <Detail vault={selected} now={now} watched={watchlist.includes(selected.id)} toggleWatch={toggleWatch} walletPosition={walletView?.positions.find((position) => position.vaultId === selected.id)} /> : <div className="p0-detail-empty"><Link to="/app/explore"><ArrowLeft size={15} /> Back to Explore</Link><EmptyState title="Opportunity not found">This ID is not in MANDEVYR's reviewed registry.</EmptyState></div>}</section> : <main className="p0-content">
+      {isP1 ? <main className="p0-content"><Suspense fallback={<div className="p0-loading" role="status"><LoaderCircle size={24} className="spin" /> Opening research workspace…</div>}><P1Panel path={location.pathname} wallet={wallet} walletChain={walletChain} provider={activeWallet?.provider ?? null} registry={data} /></Suspense></main> : opportunityId ? <section className="p0-content">{loading ? <div className="p0-loading" role="status"><LoaderCircle size={24} className="spin" /> Checking Arc data…</div> : selected ? <Detail vault={selected} now={now} watched={watchlist.includes(selected.id)} toggleWatch={toggleWatch} walletPosition={walletView?.positions.find((position) => position.vaultId === selected.id)} /> : <div className="p0-detail-empty"><Link to="/app/explore"><ArrowLeft size={15} /> Back to Explore</Link><EmptyState title="Opportunity not found">This ID is not in MANDEVYR's reviewed registry.</EmptyState></div>}</section> : <main className="p0-content">
         <div className="p0-hero">
-          <div className="p0-hero-copy"><h1 tabIndex={-1}>{isWatchlist ? <>Your watchlist<span>.</span></> : location.pathname === "/app/explore" ? <>Explore with <em>context.</em></> : <>A clearer field<br />of <em>view.</em></>}</h1><p>{isWatchlist ? "Keep the opportunities you want to revisit in one place. This list lives in your browser." : "A small, sourced view of vaults on Arc. Inspect the evidence, follow the risk, and decide at your own pace."}</p><div className="p0-hero-actions"><Link to="/app/explore" className="p0-primary-link">Explore opportunities <ArrowUpRight size={17} /></Link></div></div>
+          <div className="p0-hero-copy"><h1 tabIndex={-1}>{isWatchlist ? <>Your watchlist<span>.</span></> : location.pathname === "/app/explore" ? <>Explore with <em>context.</em></> : <>A clearer field<br />of <em>view.</em></>}</h1><p>{isWatchlist ? "Keep the opportunities you want to revisit in one place. This list lives in your browser." : "A small, sourced view of vaults on Arc. Inspect the evidence, follow the risk, and decide at your own pace."}</p><div className="p0-hero-actions"><Link to="/app/explore" className="p0-primary-link">Explore opportunities <ArrowUpRight size={17} /></Link>{P1_ENABLED && <Link to="/app/preflight/new" className="p0-preflight-link">Run a preflight <ArrowRight size={16} /></Link>}</div></div>
           <LogoSculpture />
         </div>
         <div className="p0-stats" aria-label="Workspace summary"><div><span>NETWORK</span><strong>Arc Mainnet <ArrowUpRight size={19} /></strong><small>Chain ID 5042</small></div><div><span>LIVE CONTRACT CHECKS</span><strong>{loading ? "—" : `${fresh} / ${entries.length}`}</strong><small>Contract + base asset checks</small></div><div><span>WATCHING</span><strong>{watchlist.length.toString().padStart(2, "0")}</strong><small>Saved in this browser</small></div><div><span>YOUR USDC ON ARC</span><strong>{walletView ? `${amount(walletView.nativeUsdcRaw, 18, 3)} USDC` : "Connect wallet"}</strong><small>One native USDC balance</small></div></div>
@@ -370,7 +384,7 @@ function VaultRow({ vault, now, watched, toggleWatch }: { vault: VaultSnapshot; 
 function Detail({ vault, now, watched, toggleWatch, walletPosition }: { vault: VaultSnapshot; now: number; watched: boolean; toggleWatch: (id: string) => void; walletPosition?: WalletSnapshot["positions"][number] }) {
   const status = evidenceStatus(vault, now);
   const current = status === "fresh" && vault.codePresent && vault.assetMatched;
-  return <div className="p0-detail"><Link to="/app/explore" className="p0-back"><ArrowLeft size={16} /> Back to opportunities</Link><div className="p0-detail-hero"><div><div className="p0-detail-title"><VaultLogo vault={vault} /><h1 tabIndex={-1}>{vault.name}<span>.</span></h1></div><p>{vault.description}</p><div className="p0-detail-controls"><button type="button" onClick={() => toggleWatch(vault.id)} className={watched ? "saved" : ""}><Bookmark size={17} fill={watched ? "currentColor" : "none"} /> {watched ? "Saved to watchlist" : "Add to watchlist"}</button><a href={vault.sourceUrl} target="_blank" rel="noreferrer">View at Morpho <ArrowUpRight size={17} /></a></div></div><div className="p0-detail-seal"><div className={current ? "ok" : "warn"}>{current ? <Check size={34} /> : <CircleAlert size={34} />}</div><strong>{current ? "SOURCE MATCHED" : "REVIEW REQUIRED"}</strong><small>{current ? "Contract code and asset match the reviewed address." : "Fresh contract evidence is unavailable."}</small></div></div>
+  return <div className="p0-detail"><Link to="/app/explore" className="p0-back"><ArrowLeft size={16} /> Back to opportunities</Link><div className="p0-detail-hero"><div><div className="p0-detail-title"><VaultLogo vault={vault} /><h1 tabIndex={-1}>{vault.name}<span>.</span></h1></div><p>{vault.description}</p><div className="p0-detail-controls"><button type="button" onClick={() => toggleWatch(vault.id)} className={watched ? "saved" : ""}><Bookmark size={17} fill={watched ? "currentColor" : "none"} /> {watched ? "Saved to watchlist" : "Add to watchlist"}</button><a href={vault.sourceUrl} target="_blank" rel="noreferrer">View at Morpho <ArrowUpRight size={17} /></a>{P1_ENABLED && <Link to={`/app/preflight/new?target=${encodeURIComponent(vault.id)}`}>Run a preflight <ArrowRight size={17} /></Link>}</div></div><div className="p0-detail-seal"><div className={current ? "ok" : "warn"}>{current ? <Check size={34} /> : <CircleAlert size={34} />}</div><strong>{current ? "SOURCE MATCHED" : "REVIEW REQUIRED"}</strong><small>{current ? "Contract code and asset match the reviewed address." : "Fresh contract evidence is unavailable."}</small></div></div>
     <div className="p0-detail-metrics"><div><span>TOTAL ASSETS / ON CHAIN</span><strong>{amount(vault.totalAssetsRaw, vault.assetDecimals)} <small>{vault.asset}</small></strong><p>Vault-reported `totalAssets()` at block {vault.blockNumber ?? "unknown"}.</p></div><div><span>NET APY</span><strong>Not verified</strong><p>No yield rate is quoted without a checked method and time window.</p></div><div><span>YOUR POSITION</span><strong>{walletPosition?.status === "available" ? `${amount(walletPosition.assetsRaw, vault.assetDecimals, 4)} ${vault.asset}` : "Connect to inspect"}</strong><p>{walletPosition?.status === "available" ? "Share value is indicative. Immediate withdrawal capacity is unknown." : "Wallet-specific view only. No transaction is initiated."}</p></div></div>
     <div className="p0-detail-columns"><div className="p0-evidence-card"><div className="p0-card-heading"><StatusPill vault={vault} now={now} /></div><h2>What we checked</h2><div className="p0-evidence-line"><span>Provider listing</span><a href={vault.sourceUrl} target="_blank" rel="noreferrer">Morpho vault page <ExternalLink size={14} /></a></div><div className="p0-evidence-line"><span>Network</span><strong>Arc Mainnet · 5042</strong></div><div className="p0-evidence-line"><span>Vault contract</span><AddressLink address={vault.address} /></div><div className="p0-evidence-line"><span>Contract code</span><strong>{vault.codePresent ? "Present at observed block" : "Unavailable"}</strong></div><div className="p0-evidence-line"><span>Base asset</span><AddressLink address={vault.assetAddress}>{vault.asset} · {shortAddress(vault.assetAddress)}</AddressLink></div><div className="p0-evidence-line"><span>Asset match</span><strong>{vault.assetMatched ? "Confirmed on chain" : "Could not confirm"}</strong></div><div className="p0-evidence-line"><span>Share token</span><strong>{vault.shareSymbol ?? "Unavailable"}</strong></div><div className="p0-evidence-line"><span>Withdrawal capacity</span><a href="https://github.com/morpho-org/vault-v2#overview" target="_blank" rel="noreferrer">Unknown · Vault V2 method <ExternalLink size={14} /></a></div><div className="p0-evidence-line"><span>Block observed</span><strong>{vault.blockNumber ?? "Unavailable"}</strong></div><div className="p0-evidence-line"><span>Block time</span><strong>{timeLabel(vault.blockTimestamp)}</strong></div><div className="p0-evidence-line"><span>Fetched</span><strong>{timeLabel(vault.fetchedAt)}</strong></div><div className="p0-evidence-line"><span>Editorial review</span><strong>{vault.reviewedAt}</strong></div>{vault.error && <p className="p0-evidence-warning">{vault.error}</p>}</div><div className="p0-risk-card"><h2>Risk travels<br /><em>with the asset.</em></h2><p>These flags guide further reading. They are not a rating, an audit, or a statement of safety.</p><div className="p0-risk-stack">{vault.riskFlags.map((flag) => <div key={flag}><strong>{flag}</strong><ArrowDownRight size={16} /></div>)}</div><div className="p0-risk-foot"><LockKeyhole size={18} /><span>Read-only research. MANDEVYR cannot deposit, withdraw, or sign for you in P0.</span></div></div></div>
   </div>;

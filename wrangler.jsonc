@@ -1,7 +1,13 @@
 {
-  "name": "mandevyr-p0",
+  "name": "mandevyr-p1",
   "main": "./src/worker/index.ts",
   "compatibility_date": "2026-09-30",
+  "d1_databases": [{
+    "binding": "DB",
+    "database_name": "mandevyr-p1",
+    "database_id": "00000000-0000-0000-0000-000000000001"
+  }],
+  "triggers": { "crons": ["*/15 * * * *"] },
   "assets": {
     "directory": "./dist/client",
     "not_found_handling": "single-page-application",

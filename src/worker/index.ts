@@ -10,8 +10,9 @@ import {
   type WalletSnapshot,
 } from "../p0/registry.ts";
 import { evidenceStatus, sourceMatches } from "../p0/evidence.ts";
+import { createP1Api, runWatchtower, type P1Database } from "../p1/api.ts";
 
-const app = new Hono();
+const app = new Hono<{ Bindings: { DB?: P1Database } }>();
 const client = createPublicClient({
   chain: arc,
   transport: http(ARC_RPC, { timeout: 9_000, retryCount: 1, retryDelay: 200 }),
@@ -175,4 +176,15 @@ app.get("/api/wallet/:address", async (c) => {
   }
 });
 
-export default app;
+app.route("/api/p1", createP1Api(
+  () => registry(true),
+  (args) => client.verifySiweMessage(args),
+));
+
+export default {
+  fetch(request: Request, env?: { DB?: P1Database }) { return app.fetch(request, env); },
+  async scheduled(_event: unknown, env: { DB?: P1Database }) {
+    if (!env.DB) return;
+    await runWatchtower(env.DB, () => registry(true));
+  },
+};
