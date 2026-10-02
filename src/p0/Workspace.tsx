@@ -25,6 +25,7 @@ import {
   History,
   Bell,
   Wallet,
+  Send,
   X,
 } from "lucide-react";
 import { formatUnits, isAddress } from "viem";
@@ -47,6 +48,8 @@ import { VaultLogo } from "./VaultLogo";
 import { P1_ENABLED } from "../p1/config";
 import "./workspace.css";
 import "./logo-sculpture.css";
+
+const P2Panel = lazy(() => import("../p2/P2Panel").then((module) => ({ default: module.P2Panel })));
 
 const WATCHLIST_KEY = "mandevyr:p0:watchlist";
 const ACTIVE_WALLET_KEY = "mandevyr:p0:wallet";
@@ -111,7 +114,8 @@ export function Workspace() {
   const location = useLocation();
   const { id } = useParams();
   const opportunityId = location.pathname.startsWith("/app/opportunities/") ? id : undefined;
-  const isP1 = ["/app/mandate", "/app/preflight/new", "/app/history", "/app/watch"].includes(location.pathname) || location.pathname.startsWith("/app/preflight/");
+  const isP2 = location.pathname === "/app/actions";
+  const isP1 = isP2 || ["/app/mandate", "/app/preflight/new", "/app/history", "/app/watch"].includes(location.pathname) || location.pathname.startsWith("/app/preflight/");
   const [data, setData] = useState<RegistryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -162,10 +166,11 @@ export function Workspace() {
   }, []);
 
   useEffect(() => {
+    if (isP2) return;
     const start = window.setTimeout(() => void fetchRegistry(true), 0);
     const timer = window.setInterval(() => { if (document.visibilityState === "visible") void fetchRegistry(); }, 60_000);
     return () => { window.clearTimeout(start); window.clearInterval(timer); };
-  }, [fetchRegistry]);
+  }, [fetchRegistry, isP2]);
 
   useEffect(() => listenForWallets(setAvailableWallets), []);
 
@@ -325,27 +330,28 @@ export function Workspace() {
           <Link to="/app/preflight/new" onClick={() => setMenuOpen(false)} className={location.pathname.startsWith("/app/preflight") ? "active" : ""}><ClipboardCheck size={18} /> Preflight</Link>
           <Link to="/app/watch" onClick={() => setMenuOpen(false)} className={location.pathname === "/app/watch" ? "active" : ""}><Bell size={18} /> Watchtower</Link>
           <Link to="/app/history" onClick={() => setMenuOpen(false)} className={location.pathname === "/app/history" ? "active" : ""}><History size={18} /> History</Link>
+          <Link to="/app/actions" onClick={() => setMenuOpen(false)} className={isP2 ? "active" : ""}><Send size={18} /> Actions</Link>
         </>}
       </nav>
         <div className="p0-side-foot">
-          <div className="p0-network-mark"><span className="p0-pulse" /> Read only on Arc</div>
-        <p>Make sense of what is onchain. Keep the final call in your hands.</p>
+          <div className="p0-network-mark"><span className="p0-pulse" /> {isP2 ? "Arc Testnet fixture" : "Read only on Arc"}</div>
+        <p>{isP2 ? "Testnet transactions require your wallet confirmation. Mainnet actions remain off." : "Make sense of what is onchain. Keep the final call in your hands."}</p>
         <Link to="/docs">Read the methodology <ArrowUpRight size={14} /></Link>
       </div>
     </aside>
     <div className="p0-main">
       <header className="p0-topbar">
         <button className="p0-mobile-menu" type="button" onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? "Close menu" : "Open menu"}>{menuOpen ? <X size={20} /> : <Menu size={20} />}</button>
-        <div className="p0-breadcrumb"><Link to="/app">MANDEVYR</Link><span>/</span><span>{opportunityId ? "Opportunity" : isP1 ? location.pathname === "/app/mandate" ? "Mandate" : location.pathname === "/app/watch" ? "Watchtower" : location.pathname === "/app/history" ? "History" : "Preflight" : isWatchlist ? "Watchlist" : location.pathname === "/app/explore" ? "Explore" : "Overview"}</span></div>
+        <div className="p0-breadcrumb"><Link to="/app">MANDEVYR</Link><span>/</span><span>{opportunityId ? "Opportunity" : isP1 ? isP2 ? "Actions" : location.pathname === "/app/mandate" ? "Mandate" : location.pathname === "/app/watch" ? "Watchtower" : location.pathname === "/app/history" ? "History" : "Preflight" : isWatchlist ? "Watchlist" : location.pathname === "/app/explore" ? "Explore" : "Overview"}</span></div>
         <div className="p0-top-actions">
-          <span className="p0-mainnet-label"><span /> Arc Mainnet</span>
-          {wallet ? walletChain === 5042 ? <button type="button" className="p0-wallet-connected" onClick={openWalletDialog} aria-label={`Wallet ${shortAddress(wallet)}. Open wallet menu`}><Wallet size={15} /> {shortAddress(wallet)} <ChevronDown size={13} /></button> : <><button type="button" className="p0-wallet-switch" onClick={() => void switchArc()} disabled={walletBusy}>Switch to Arc <ArrowRight size={15} /></button><button type="button" className="p0-wallet-change" onClick={openWalletDialog} aria-label="Choose another wallet"><Wallet size={17} /></button></> : <button type="button" className="p0-wallet-button" onClick={openWalletDialog}><Wallet size={16} /> Connect wallet</button>}
+          <span className="p0-mainnet-label"><span /> {isP2 ? "Arc Testnet" : "Arc Mainnet"}</span>
+          {wallet ? (isP2 || walletChain === 5042) ? <button type="button" className="p0-wallet-connected" onClick={openWalletDialog} aria-label={`Wallet ${shortAddress(wallet)}. Open wallet menu`}><Wallet size={15} /> {shortAddress(wallet)} <ChevronDown size={13} /></button> : <><button type="button" className="p0-wallet-switch" onClick={() => void switchArc()} disabled={walletBusy}>Switch to Arc <ArrowRight size={15} /></button><button type="button" className="p0-wallet-change" onClick={openWalletDialog} aria-label="Choose another wallet"><Wallet size={17} /></button></> : <button type="button" className="p0-wallet-button" onClick={openWalletDialog}><Wallet size={16} /> Connect wallet</button>}
         </div>
       </header>
       {walletError && !walletDialogOpen && <div className="p0-inline-alert" role="alert"><CircleAlert size={17} />{walletError}<button onClick={() => setWalletError(null)} aria-label="Dismiss wallet message"><X size={15} /></button></div>}
-      {wallet && walletChain !== 5042 && <div className="p0-inline-alert" role="status"><CircleAlert size={17} />Your wallet is on another network. Switch to Arc to view your balance and vault positions.</div>}
-      {loadError && <div className="p0-inline-alert" role="alert"><CircleAlert size={17} />{loadError} <button type="button" onClick={() => void fetchRegistry()}>Retry <RefreshCw size={14} /></button></div>}
-      {isP1 ? <main className="p0-content"><Suspense fallback={<div className="p0-loading" role="status"><LoaderCircle size={24} className="spin" /> Opening research workspace…</div>}><P1Panel path={location.pathname} wallet={wallet} walletChain={walletChain} provider={activeWallet?.provider ?? null} registry={data} /></Suspense></main> : opportunityId ? <section className="p0-content">{loading ? <div className="p0-loading" role="status"><LoaderCircle size={24} className="spin" /> Checking Arc data…</div> : selected ? <Detail vault={selected} now={now} watched={watchlist.includes(selected.id)} toggleWatch={toggleWatch} walletPosition={walletView?.positions.find((position) => position.vaultId === selected.id)} /> : <div className="p0-detail-empty"><Link to="/app/explore"><ArrowLeft size={15} /> Back to Explore</Link><EmptyState title="Opportunity not found">This ID is not in MANDEVYR's reviewed registry.</EmptyState></div>}</section> : <main className="p0-content">
+      {wallet && walletChain !== 5042 && !isP2 && <div className="p0-inline-alert" role="status"><CircleAlert size={17} />Your wallet is on another network. Switch to Arc to view your balance and vault positions.</div>}
+      {loadError && !isP2 && <div className="p0-inline-alert" role="alert"><CircleAlert size={17} />{loadError} <button type="button" onClick={() => void fetchRegistry()}>Retry <RefreshCw size={14} /></button></div>}
+      {isP1 ? <main className="p0-content"><Suspense fallback={<div className="p0-loading" role="status"><LoaderCircle size={24} className="spin" /> Opening workspace…</div>}>{isP2 ? <P2Panel wallet={wallet} walletChain={walletChain} provider={activeWallet?.provider ?? null} /> : <P1Panel path={location.pathname} wallet={wallet} walletChain={walletChain} provider={activeWallet?.provider ?? null} registry={data} />}</Suspense></main> : opportunityId ? <section className="p0-content">{loading ? <div className="p0-loading" role="status"><LoaderCircle size={24} className="spin" /> Checking Arc data…</div> : selected ? <Detail vault={selected} now={now} watched={watchlist.includes(selected.id)} toggleWatch={toggleWatch} walletPosition={walletView?.positions.find((position) => position.vaultId === selected.id)} /> : <div className="p0-detail-empty"><Link to="/app/explore"><ArrowLeft size={15} /> Back to Explore</Link><EmptyState title="Opportunity not found">This ID is not in MANDEVYR's reviewed registry.</EmptyState></div>}</section> : <main className="p0-content">
         <div className="p0-hero">
           <div className="p0-hero-copy"><h1 tabIndex={-1}>{isWatchlist ? <>Your watchlist<span>.</span></> : location.pathname === "/app/explore" ? <>Explore with <em>context.</em></> : <>A clearer field<br />of <em>view.</em></>}</h1><p>{isWatchlist ? "Keep the opportunities you want to revisit in one place. This list lives in your browser." : "A small, sourced view of vaults on Arc. Inspect the evidence, follow the risk, and decide at your own pace."}</p><div className="p0-hero-actions"><Link to="/app/explore" className="p0-primary-link">Explore opportunities <ArrowUpRight size={17} /></Link>{P1_ENABLED && <Link to="/app/preflight/new" className="p0-preflight-link">Run a preflight <ArrowRight size={16} /></Link>}</div></div>
           <LogoSculpture />

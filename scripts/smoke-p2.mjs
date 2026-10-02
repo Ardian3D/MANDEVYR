@@ -1,0 +1,31 @@
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
+import { createSiweMessage } from "viem/siwe";
+
+const origin = process.env.MANDEVYR_SMOKE_ORIGIN || "http://127.0.0.1:5173";
+const account = privateKeyToAccount(generatePrivateKey());
+let cookie = "";
+
+async function call(path, method = "GET", body, expectedStatus = 200) {
+  const response = await fetch(`${origin}/api/p1${path}`, { method, headers: { Origin: origin, ...(body ? { "Content-Type": "application/json" } : {}), ...(cookie ? { Cookie: cookie } : {}) }, body: body ? JSON.stringify(body) : undefined });
+  if (response.headers.has("set-cookie")) cookie = response.headers.get("set-cookie").split(";")[0];
+  const data = await response.json();
+  if (response.status !== expectedStatus) throw new Error(`${path}: expected ${expectedStatus}, got ${response.status} ${JSON.stringify(data)}`);
+  return data;
+}
+
+const config = await call("/actions/config");
+if (config.chainId !== 5042002 || config.writesEnabled) throw new Error("Testnet-only kill switch is not closed by default");
+await call("/actions", "GET", undefined, 401);
+const { nonce } = await call("/auth/nonce", "POST");
+const issuedAt = new Date();
+const message = createSiweMessage({ address: account.address, chainId: 5042, domain: new URL(origin).host, uri: origin, version: "1", nonce, issuedAt, expirationTime: new Date(issuedAt.getTime() + 300_000) });
+await call("/auth/verify", "POST", { message, signature: await account.signMessage({ message }) });
+await call("/mandates", "POST", { rules: { maxActionRaw: "100000000", maxDailyRaw: "300000000", maxGasRaw: "100000000000000000", allowedAssets: ["USDC"], deniedTargets: [], requireAvailableWithdrawal: false, maxEvidenceAgeSeconds: 120, manualApproval: true } }, 201);
+await call("/actions/prepare", "POST", { kind: "deposit", amountRaw: "not-a-number", idempotencyKey: crypto.randomUUID() }, 400);
+await call("/actions/prepare", "POST", { kind: "deposit", amountRaw: "1000000", idempotencyKey: crypto.randomUUID() }, 409);
+const actions = await call("/actions");
+if (actions.items.length) throw new Error("Disabled adapter saved an action");
+const exported = await call("/data/export");
+if (!Array.isArray(exported.actions) || exported.actions.length) throw new Error("P2 export is not scoped or empty");
+await call("/data/delete", "POST", { confirm: "DELETE" });
+console.log(JSON.stringify({ guestActions: "blocked", testnetOnly: "ok", killSwitch: "closed", invalidAmount: "blocked", disabledPrepare: "blocked", export: "ok", deletion: "ok" }));

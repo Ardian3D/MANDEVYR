@@ -5,14 +5,18 @@ import type { RegistryResponse } from "../p0/registry.ts";
 import { VAULTS } from "../p0/registry.ts";
 import { evidenceStatus } from "../p0/evidence.ts";
 import { evaluateDeposit, validateIntent, validateRules, type Mandate, type PreflightReport } from "./rules.ts";
+import { isHex } from "viem";
+import { getP2Config, p2Client, prepareP2Action, verifyP2Adapter, type P2Bindings } from "../p2/adapter.ts";
+import { isExpired, parsePositiveRaw, receiptState, type PreparedAction } from "../p2/core.ts";
 
 type Statement = { bind(...values: unknown[]): Statement; first<T>(): Promise<T | null>; all<T>(): Promise<{ results: T[] }>; run(): Promise<{ meta: { changes: number } }> };
 export type P1Database = { prepare(sql: string): Statement };
-type Env = { Bindings: { DB?: P1Database } };
+type Env = { Bindings: { DB?: P1Database } & P2Bindings };
 type Session = { wallet: string; tokenHash: string };
 type MandateRow = { id: string; version: number; rules_json: string; created_at: string; supersedes_id: string | null };
 type ReportRow = { report_json: string; input_hash: string };
 type AlertRow = { id: string; vault_id: string; rule_id: string; severity: string; before_json: string | null; after_json: string; source_uri: string; created_at: string; read_at: string | null };
+type ActionRow = { action_json: string; input_hash: string; state: string; tx_hash: string | null; updated_at: string };
 const COOKIE = "mandevyr_session";
 const SESSION_SECONDS = 7 * 24 * 60 * 60;
 
@@ -196,16 +200,140 @@ export function createP1Api(getRegistry: () => Promise<RegistryResponse>, verify
     return changed.meta.changes ? c.json({ ok: true }) : c.json({ error: "Alert not found." }, 404);
   });
 
+  async function actionFor(c: Context<Env>, wallet: string, id: string) {
+    const row = await c.env.DB!.prepare("SELECT action_json, input_hash, state, tx_hash, updated_at FROM p2_actions WHERE id = ? AND wallet = ?").bind(id, wallet).first<ActionRow>();
+    return row ? { row, action: JSON.parse(row.action_json) as PreparedAction } : null;
+  }
+
+  app.get("/actions/config", async (c) => {
+    const config = getP2Config(c.env);
+    return c.json({ chainId: config.chainId, network: config.network, vault: config.vault, asset: config.asset, explorer: config.explorer, configured: config.configured, writesEnabled: config.writesEnabled });
+  });
+
+  app.post("/actions/prepare", async (c) => {
+    const current = await session(c);
+    if (!current) return c.json({ error: "Wallet sign-in required." }, 401);
+    if (!await rateAllowed(c.env.DB!, `p2:${current.wallet}`, 30, 3600)) return c.json({ error: "Hourly action review limit reached." }, 429);
+    const body = await c.req.json().catch(() => null) as { kind?: unknown; amountRaw?: unknown; idempotencyKey?: unknown } | null;
+    if ((body?.kind !== "deposit" && body?.kind !== "withdraw") || typeof body.amountRaw !== "string" || typeof body.idempotencyKey !== "string" || !/^[a-zA-Z0-9_-]{8,80}$/.test(body.idempotencyKey)) return c.json({ error: "Choose a valid action, amount, and review key." }, 400);
+    let amountRaw: bigint;
+    try { amountRaw = parsePositiveRaw(body.amountRaw); } catch (error) { return c.json({ error: error instanceof Error ? error.message : "Invalid amount." }, 400); }
+    const inputHash = await sha256(json({ kind: body.kind, amountRaw: amountRaw.toString(), wallet: current.wallet }));
+    const existing = await c.env.DB!.prepare("SELECT action_json, input_hash FROM p2_actions WHERE wallet = ? AND idempotency_key = ?").bind(current.wallet, body.idempotencyKey).first<ActionRow>();
+    if (existing) return existing.input_hash === inputHash ? c.json(JSON.parse(existing.action_json) as PreparedAction) : c.json({ error: "This review key was already used for different input." }, 409);
+    const active = await c.env.DB!.prepare("SELECT id, version, rules_json, created_at, supersedes_id FROM p1_mandates WHERE wallet = ? ORDER BY version DESC LIMIT 1").bind(current.wallet).first<MandateRow>();
+    if (!active) return c.json({ error: "Create a mandate before preparing an action." }, 409);
+    const pending = await c.env.DB!.prepare("SELECT id FROM p2_actions WHERE wallet = ? AND state IN ('wallet_prompt', 'submitted', 'unknown') AND created_at > ? LIMIT 1").bind(current.wallet, new Date(Date.now() - 30 * 60_000).toISOString()).first<{ id: string }>();
+    if (pending) return c.json({ error: "A previous wallet action is unresolved. Check its receipt before preparing another." }, 409);
+    if (body.kind === "deposit") {
+      const recent = await c.env.DB!.prepare("SELECT action_json FROM p2_actions WHERE wallet = ? AND created_at > ? AND state IN ('wallet_prompt', 'submitted', 'confirmed', 'unknown')").bind(current.wallet, new Date(Date.now() - 24 * 60 * 60_000).toISOString()).all<{ action_json: string }>();
+      const reserved = recent.results.reduce((sum, row) => { const action = JSON.parse(row.action_json) as PreparedAction; return sum + (action.kind === "deposit" && action.step === "action" ? BigInt(action.amountRaw) : 0n); }, 0n);
+      if (amountRaw + reserved > BigInt(mapMandate(active).rules.maxDailyRaw)) return c.json({ error: "This amount would exceed the mandate's 24-hour limit for recorded actions." }, 409);
+    }
+    try {
+      const action = await prepareP2Action({ kind: body.kind, amountRaw: amountRaw.toString(), wallet: current.wallet as `0x${string}`, mandate: mapMandate(active), env: c.env });
+      await c.env.DB!.prepare("INSERT INTO p2_actions (id, wallet, mandate_id, idempotency_key, input_hash, action_json, state, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(action.id, current.wallet, active.id, body.idempotencyKey, inputHash, json(action), action.state, action.createdAt, action.createdAt).run();
+      return c.json(action, 201);
+    } catch (error) { return c.json({ error: error instanceof Error ? error.message : "The action could not be prepared." }, 409); }
+  });
+
+  app.get("/actions", async (c) => {
+    const current = await session(c);
+    if (!current) return c.json({ error: "Wallet sign-in required." }, 401);
+    const rows = await c.env.DB!.prepare("SELECT action_json FROM p2_actions WHERE wallet = ? ORDER BY created_at DESC LIMIT 30").bind(current.wallet).all<{ action_json: string }>();
+    return c.json({ items: rows.results.map((row) => JSON.parse(row.action_json) as PreparedAction) });
+  });
+
+  app.post("/actions/:id/prompt", async (c) => {
+    const current = await session(c);
+    if (!current) return c.json({ error: "Wallet sign-in required." }, 401);
+    const found = await actionFor(c, current.wallet, c.req.param("id"));
+    if (!found) return c.json({ error: "Action not found." }, 404);
+    const { action } = found;
+    if (action.state !== "preflight_ready" || isExpired(action)) return c.json({ error: "The review has expired or a wallet request is already in progress. Prepare a fresh review." }, 409);
+    const active = await c.env.DB!.prepare("SELECT id FROM p1_mandates WHERE wallet = ? ORDER BY version DESC LIMIT 1").bind(current.wallet).first<{ id: string }>();
+    if (active?.id !== action.mandateId) return c.json({ error: "Your mandate changed. Prepare a fresh review." }, 409);
+    try {
+      if (!getP2Config(c.env).writesEnabled) return c.json({ error: "Testnet actions have been paused." }, 409);
+      await verifyP2Adapter(getP2Config(c.env));
+      await p2Client.call({ account: action.wallet, to: action.target, data: action.calldata });
+    } catch { return c.json({ error: "The adapter or simulation changed. Refresh the review." }, 409); }
+    const next: PreparedAction = { ...action, state: "wallet_prompt" };
+    const changed = await c.env.DB!.prepare("UPDATE p2_actions SET action_json = ?, state = ?, updated_at = ? WHERE id = ? AND wallet = ? AND state = 'preflight_ready'").bind(json(next), next.state, new Date().toISOString(), action.id, current.wallet).run();
+    return changed.meta.changes ? c.json(next) : c.json({ error: "Another wallet request is already in progress." }, 409);
+  });
+
+  app.post("/actions/:id/rejected", async (c) => {
+    const current = await session(c);
+    if (!current) return c.json({ error: "Wallet sign-in required." }, 401);
+    const found = await actionFor(c, current.wallet, c.req.param("id"));
+    if (!found) return c.json({ error: "Action not found." }, 404);
+    if (found.action.state !== "wallet_prompt") return c.json({ error: "This action cannot be cancelled." }, 409);
+    const next: PreparedAction = { ...found.action, state: "draft", message: "Wallet request cancelled. Prepare a fresh review to try again." };
+    await c.env.DB!.prepare("UPDATE p2_actions SET action_json = ?, state = ?, updated_at = ? WHERE id = ? AND wallet = ? AND state = 'wallet_prompt'").bind(json(next), next.state, new Date().toISOString(), next.id, current.wallet).run();
+    return c.json(next);
+  });
+
+  app.post("/actions/:id/tx", async (c) => {
+    const current = await session(c);
+    if (!current) return c.json({ error: "Wallet sign-in required." }, 401);
+    const found = await actionFor(c, current.wallet, c.req.param("id"));
+    if (!found) return c.json({ error: "Action not found." }, 404);
+    const body = await c.req.json().catch(() => null) as { hash?: unknown } | null;
+    if (typeof body?.hash !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(body.hash) || !isHex(body.hash)) return c.json({ error: "A valid transaction hash is required." }, 400);
+    const action = found.action;
+    if (["submitted", "unknown", "dropped"].includes(action.state) && action.txHash?.toLowerCase() === body.hash.toLowerCase()) return c.json(action);
+    if (!["wallet_prompt", "submitted", "unknown", "dropped"].includes(action.state)) return c.json({ error: "This action is not waiting for a wallet transaction." }, 409);
+    let tx;
+    try { tx = await p2Client.getTransaction({ hash: body.hash as `0x${string}` }); }
+    catch { return c.json({ error: "Transaction is not visible on Arc Testnet yet. Retry recording this hash; do not send another transaction." }, 425); }
+    if (tx.from.toLowerCase() !== current.wallet || tx.to?.toLowerCase() !== action.target.toLowerCase() || tx.input.toLowerCase() !== action.calldata.toLowerCase() || tx.value !== 0n || tx.chainId !== action.chainId) return c.json({ error: "Transaction does not match the approved review." }, 409);
+    if (action.state !== "wallet_prompt" && (action.txNonce === null || action.txNonce === undefined || tx.nonce !== action.txNonce)) return c.json({ error: "Replacement transaction must use the original wallet nonce." }, 409);
+    const next: PreparedAction = { ...action, state: "submitted", txHash: body.hash as `0x${string}`, txNonce: tx.nonce, submittedAt: new Date().toISOString(), message: null };
+    try {
+      const changed = await c.env.DB!.prepare("UPDATE p2_actions SET action_json = ?, state = ?, tx_hash = ?, updated_at = ? WHERE id = ? AND wallet = ? AND state = ?").bind(json(next), next.state, next.txHash, new Date().toISOString(), next.id, current.wallet, action.state).run();
+      return changed.meta.changes ? c.json(next) : c.json({ error: "This wallet action was already recorded." }, 409);
+    } catch { return c.json({ error: "This transaction hash is already recorded for another action." }, 409); }
+  });
+
+  app.get("/actions/:id", async (c) => {
+    const current = await session(c);
+    if (!current) return c.json({ error: "Wallet sign-in required." }, 401);
+    const found = await actionFor(c, current.wallet, c.req.param("id"));
+    if (!found) return c.json({ error: "Action not found." }, 404);
+    const action = found.action;
+    if (!action.txHash || !["submitted", "unknown"].includes(action.state)) return c.json(action);
+    let receipt: { status: "success" | "reverted" } | null = null;
+    let known = false;
+    let notFound = false;
+    try {
+      const tx = await p2Client.getTransaction({ hash: action.txHash });
+      known = tx.from.toLowerCase() === action.wallet.toLowerCase() && tx.to?.toLowerCase() === action.target.toLowerCase() && tx.input.toLowerCase() === action.calldata.toLowerCase();
+      if (!known) return c.json({ error: "The recorded transaction no longer matches this action." }, 409);
+      try { receipt = await p2Client.getTransactionReceipt({ hash: action.txHash }); } catch { /* Pending or provider unavailable. */ }
+    } catch (cause) { notFound = cause instanceof Error && cause.name === "TransactionNotFoundError"; }
+    let replacementPossible = false;
+    if (notFound && action.txNonce !== null && action.txNonce !== undefined) {
+      try { replacementPossible = await p2Client.getTransactionCount({ address: action.wallet, blockTag: "latest" }) > action.txNonce; }
+      catch { replacementPossible = true; }
+    }
+    const state = receiptState(receipt, notFound && !replacementPossible, Date.now() - Date.parse(action.submittedAt ?? found.row.updated_at));
+    const next: PreparedAction = { ...action, state, message: state === "reverted" ? "The transaction reverted on Arc Testnet." : state === "dropped" ? "This transaction was not found after 30 minutes." : replacementPossible ? "The original hash is missing and the wallet nonce advanced. A replacement may have landed; track its new hash below." : state === "unknown" ? "Receipt pending or RPC unavailable. Check the explorer before retrying." : null };
+    if (next.state !== action.state) await c.env.DB!.prepare("UPDATE p2_actions SET action_json = ?, state = ?, updated_at = ? WHERE id = ? AND wallet = ?").bind(json(next), next.state, new Date().toISOString(), next.id, current.wallet).run();
+    return c.json(next);
+  });
+
   app.get("/data/export", async (c) => {
     const current = await session(c);
     if (!current) return c.json({ error: "Wallet sign-in required." }, 401);
-    const [mandates, reports, watchlist, alerts] = await Promise.all([
+    const [mandates, reports, watchlist, alerts, actions] = await Promise.all([
       c.env.DB!.prepare("SELECT id, version, rules_json, created_at, supersedes_id FROM p1_mandates WHERE wallet = ? ORDER BY version DESC").bind(current.wallet).all<MandateRow>(),
       c.env.DB!.prepare("SELECT report_json FROM p1_reports WHERE wallet = ? ORDER BY created_at DESC").bind(current.wallet).all<ReportRow>(),
       c.env.DB!.prepare("SELECT vault_id FROM p1_watchlist WHERE wallet = ? ORDER BY created_at DESC").bind(current.wallet).all<{ vault_id: string }>(),
       c.env.DB!.prepare("SELECT id, vault_id, rule_id, severity, before_json, after_json, source_uri, created_at, read_at FROM p1_alerts WHERE wallet = ? ORDER BY created_at DESC").bind(current.wallet).all<AlertRow>(),
+      c.env.DB!.prepare("SELECT action_json FROM p2_actions WHERE wallet = ? ORDER BY created_at DESC").bind(current.wallet).all<{ action_json: string }>(),
     ]);
-    return c.json({ schemaVersion: 1, exportedAt: new Date().toISOString(), wallet: current.wallet, mandates: mandates.results.map(mapMandate), reports: reports.results.map((row) => JSON.parse(row.report_json)), watchlist: watchlist.results.map((row) => row.vault_id), alerts: alerts.results.map((row) => ({ id: row.id, vaultId: row.vault_id, ruleId: row.rule_id, severity: row.severity, before: row.before_json ? JSON.parse(row.before_json) : null, after: JSON.parse(row.after_json), sourceUri: row.source_uri, createdAt: row.created_at, readAt: row.read_at })) });
+    return c.json({ schemaVersion: 2, exportedAt: new Date().toISOString(), wallet: current.wallet, mandates: mandates.results.map(mapMandate), reports: reports.results.map((row) => JSON.parse(row.report_json)), watchlist: watchlist.results.map((row) => row.vault_id), alerts: alerts.results.map((row) => ({ id: row.id, vaultId: row.vault_id, ruleId: row.rule_id, severity: row.severity, before: row.before_json ? JSON.parse(row.before_json) : null, after: JSON.parse(row.after_json), sourceUri: row.source_uri, createdAt: row.created_at, readAt: row.read_at })), actions: actions.results.map((row) => JSON.parse(row.action_json)) });
   });
 
   app.post("/data/delete", async (c) => {
@@ -213,7 +341,7 @@ export function createP1Api(getRegistry: () => Promise<RegistryResponse>, verify
     if (!current) return c.json({ error: "Wallet sign-in required." }, 401);
     const body = await c.req.json().catch(() => null) as { confirm?: unknown } | null;
     if (body?.confirm !== "DELETE") return c.json({ error: "Type DELETE to confirm account data removal." }, 400);
-    for (const table of ["p1_reports", "p1_alerts", "p1_watchlist", "p1_mandates", "p1_sessions"] as const) {
+    for (const table of ["p2_actions", "p1_reports", "p1_alerts", "p1_watchlist", "p1_mandates", "p1_sessions"] as const) {
       await c.env.DB!.prepare(`DELETE FROM ${table} WHERE wallet = ?`).bind(current.wallet).run();
     }
     await c.env.DB!.prepare("DELETE FROM p1_rate_limits WHERE key IN (?, ?)").bind(`preflight:${current.wallet}`, `watch:${current.wallet}`).run();

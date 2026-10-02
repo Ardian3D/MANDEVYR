@@ -25,6 +25,7 @@ createRoot(document.getElementById("root")!).render(
         <Route path="/app/preflight/:id" element={P1_ENABLED ? <WorkspaceRoute /> : <Navigate to="/app" replace />} />
         <Route path="/app/history" element={P1_ENABLED ? <WorkspaceRoute /> : <Navigate to="/app" replace />} />
         <Route path="/app/watch" element={P1_ENABLED ? <WorkspaceRoute /> : <Navigate to="/app" replace />} />
+        <Route path="/app/actions" element={P1_ENABLED ? <WorkspaceRoute /> : <Navigate to="/app" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

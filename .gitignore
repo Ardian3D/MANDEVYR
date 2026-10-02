@@ -15,6 +15,8 @@ dist-ssr
 .env.*
 !.env.example
 .wrangler
+.dev.vars
+vite.config.local.mjs
 
 # Editor directories and files
 .vscode/*
