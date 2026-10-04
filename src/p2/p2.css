@@ -13,6 +13,7 @@
 .p2-unavailable-icon { display: grid; place-items: center; width: 60px; height: 60px; margin-bottom: 10px; border-radius: 15px; background: #c6dcc019; color: #c7ddc1; }
 .p2-unavailable h2 { margin: 0; font-size: clamp(26px, 3vw, 36px); font-weight: 450; letter-spacing: -.04em; }
 .p2-unavailable p { max-width: 510px; margin: 0 0 17px; color: #9fb19d; font-size: 13px; line-height: 1.8; }
+.p2-unavailable > a { display: inline-flex; align-items: center; gap: 7px; width: fit-content; margin-bottom: 8px; color: #c5dfba; font-size: 12px; text-decoration: underline; text-underline-offset: 3px; }
 .p2-unavailable > div:not(.p2-unavailable-icon) { display: flex; justify-content: space-between; gap: 15px; padding-top: 12px; border-top: 1px solid #b7d6b125; font-size: 12px; }
 .p2-unavailable > div span { color: #8fa58d; }
 .p2-layout { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(270px, .85fr); gap: 20px; align-items: start; }
@@ -37,6 +38,8 @@
 .p2-primary:hover:not(:disabled) { background: #d3e8c8; }
 .p2-primary:disabled { opacity: .48; cursor: not-allowed; }
 .p2-compose .p2-primary { width: 100%; }
+.p2-vault-source { display: inline-flex; align-items: center; gap: 7px; margin-top: 20px; color: #c5dfba; font-size: 12px; text-decoration: underline; text-underline-offset: 3px; }
+.p2-compose .p2-vault-caveat { margin: 8px 0 0; color: #8ea58d; font-size: 11px; }
 .p2-flow { background: radial-gradient(circle at 100% 0%, #c4dcb216, transparent 60%), #142015; }
 .p2-flow ol { display: grid; gap: 0; margin: 24px 0 0; padding: 0; list-style: none; }
 .p2-flow li { display: flex; gap: 18px; padding: 18px 0; border-top: 1px solid #bbd4b624; }

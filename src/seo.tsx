@@ -21,6 +21,12 @@ const pages = {
     description: "Explore curated Morpho vaults on Arc with live onchain source checks and a personal watchlist in MANDEVYR.",
     robots: "noindex,follow",
   },
+  actions: {
+    path: "/app/actions",
+    title: "Galaxy USDC Actions on Arc | MANDEVYR",
+    description: "Review Galaxy USDC deposits and withdrawals on Arc Mainnet with wallet confirmation and Morpho Vault V2 contract checks.",
+    robots: "noindex,follow",
+  },
 } as const;
 
 function meta(selector: string, value: string) {
@@ -32,7 +38,7 @@ export function RouteSeo() {
   const { pathname } = useLocation();
 
   useEffect(() => {
-    const page = pathname === "/docs" ? pages.docs : pathname.startsWith("/app") ? pages.app : pages.home;
+    const page = pathname === "/docs" ? pages.docs : pathname === "/app/actions" ? pages.actions : pathname.startsWith("/app") ? pages.app : pages.home;
     const url = `${ORIGIN}${page.path}`;
     document.title = page.title;
     document.querySelector<HTMLLinkElement>('link[rel="canonical"]')?.setAttribute("href", url);

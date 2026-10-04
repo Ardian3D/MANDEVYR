@@ -202,7 +202,9 @@ export function createP1Api(getRegistry: () => Promise<RegistryResponse>, verify
 
   async function actionFor(c: Context<Env>, wallet: string, id: string) {
     const row = await c.env.DB!.prepare("SELECT action_json, input_hash, state, tx_hash, updated_at FROM p2_actions WHERE id = ? AND wallet = ?").bind(id, wallet).first<ActionRow>();
-    return row ? { row, action: JSON.parse(row.action_json) as PreparedAction } : null;
+    if (!row) return null;
+    const action = JSON.parse(row.action_json) as PreparedAction;
+    return action.chainId === getP2Config(c.env).chainId ? { row, action } : null;
   }
 
   app.get("/actions/config", async (c) => {
@@ -218,16 +220,19 @@ export function createP1Api(getRegistry: () => Promise<RegistryResponse>, verify
     if ((body?.kind !== "deposit" && body?.kind !== "withdraw") || typeof body.amountRaw !== "string" || typeof body.idempotencyKey !== "string" || !/^[a-zA-Z0-9_-]{8,80}$/.test(body.idempotencyKey)) return c.json({ error: "Choose a valid action, amount, and review key." }, 400);
     let amountRaw: bigint;
     try { amountRaw = parsePositiveRaw(body.amountRaw); } catch (error) { return c.json({ error: error instanceof Error ? error.message : "Invalid amount." }, 400); }
-    const inputHash = await sha256(json({ kind: body.kind, amountRaw: amountRaw.toString(), wallet: current.wallet }));
+    const inputHash = await sha256(json({ chainId: getP2Config(c.env).chainId, kind: body.kind, amountRaw: amountRaw.toString(), wallet: current.wallet }));
     const existing = await c.env.DB!.prepare("SELECT action_json, input_hash FROM p2_actions WHERE wallet = ? AND idempotency_key = ?").bind(current.wallet, body.idempotencyKey).first<ActionRow>();
-    if (existing) return existing.input_hash === inputHash ? c.json(JSON.parse(existing.action_json) as PreparedAction) : c.json({ error: "This review key was already used for different input." }, 409);
+    if (existing) {
+      const action = JSON.parse(existing.action_json) as PreparedAction;
+      return action.chainId === getP2Config(c.env).chainId && existing.input_hash === inputHash ? c.json(action) : c.json({ error: "This review key was already used for different input." }, 409);
+    }
     const active = await c.env.DB!.prepare("SELECT id, version, rules_json, created_at, supersedes_id FROM p1_mandates WHERE wallet = ? ORDER BY version DESC LIMIT 1").bind(current.wallet).first<MandateRow>();
     if (!active) return c.json({ error: "Create a mandate before preparing an action." }, 409);
-    const pending = await c.env.DB!.prepare("SELECT id FROM p2_actions WHERE wallet = ? AND state IN ('wallet_prompt', 'submitted', 'unknown') AND created_at > ? LIMIT 1").bind(current.wallet, new Date(Date.now() - 30 * 60_000).toISOString()).first<{ id: string }>();
-    if (pending) return c.json({ error: "A previous wallet action is unresolved. Check its receipt before preparing another." }, 409);
+    const pending = await c.env.DB!.prepare("SELECT action_json FROM p2_actions WHERE wallet = ? AND state IN ('wallet_prompt', 'submitted', 'unknown') AND created_at > ?").bind(current.wallet, new Date(Date.now() - 30 * 60_000).toISOString()).all<{ action_json: string }>();
+    if (pending.results.some((row) => (JSON.parse(row.action_json) as PreparedAction).chainId === getP2Config(c.env).chainId)) return c.json({ error: "A previous wallet action is unresolved. Check its receipt before preparing another." }, 409);
     if (body.kind === "deposit") {
       const recent = await c.env.DB!.prepare("SELECT action_json FROM p2_actions WHERE wallet = ? AND created_at > ? AND state IN ('wallet_prompt', 'submitted', 'confirmed', 'unknown')").bind(current.wallet, new Date(Date.now() - 24 * 60 * 60_000).toISOString()).all<{ action_json: string }>();
-      const reserved = recent.results.reduce((sum, row) => { const action = JSON.parse(row.action_json) as PreparedAction; return sum + (action.kind === "deposit" && action.step === "action" ? BigInt(action.amountRaw) : 0n); }, 0n);
+      const reserved = recent.results.reduce((sum, row) => { const action = JSON.parse(row.action_json) as PreparedAction; return sum + (action.chainId === getP2Config(c.env).chainId && action.kind === "deposit" && action.step === "action" ? BigInt(action.amountRaw) : 0n); }, 0n);
       if (amountRaw + reserved > BigInt(mapMandate(active).rules.maxDailyRaw)) return c.json({ error: "This amount would exceed the mandate's 24-hour limit for recorded actions." }, 409);
     }
     try {
@@ -240,7 +245,7 @@ export function createP1Api(getRegistry: () => Promise<RegistryResponse>, verify
   app.get("/actions", async (c) => {
     const current = await session(c);
     if (!current) return c.json({ error: "Wallet sign-in required." }, 401);
-    const rows = await c.env.DB!.prepare("SELECT action_json FROM p2_actions WHERE wallet = ? ORDER BY created_at DESC LIMIT 30").bind(current.wallet).all<{ action_json: string }>();
+    const rows = await c.env.DB!.prepare("SELECT action_json FROM p2_actions WHERE wallet = ? AND json_extract(action_json, '$.chainId') = ? ORDER BY created_at DESC LIMIT 30").bind(current.wallet, getP2Config(c.env).chainId).all<{ action_json: string }>();
     return c.json({ items: rows.results.map((row) => JSON.parse(row.action_json) as PreparedAction) });
   });
 
@@ -251,11 +256,16 @@ export function createP1Api(getRegistry: () => Promise<RegistryResponse>, verify
     if (!found) return c.json({ error: "Action not found." }, 404);
     const { action } = found;
     if (action.state !== "preflight_ready" || isExpired(action)) return c.json({ error: "The review has expired or a wallet request is already in progress. Prepare a fresh review." }, 409);
-    const active = await c.env.DB!.prepare("SELECT id FROM p1_mandates WHERE wallet = ? ORDER BY version DESC LIMIT 1").bind(current.wallet).first<{ id: string }>();
+    const active = await c.env.DB!.prepare("SELECT id, version, rules_json, created_at, supersedes_id FROM p1_mandates WHERE wallet = ? ORDER BY version DESC LIMIT 1").bind(current.wallet).first<MandateRow>();
     if (active?.id !== action.mandateId) return c.json({ error: "Your mandate changed. Prepare a fresh review." }, 409);
     try {
-      if (!getP2Config(c.env).writesEnabled) return c.json({ error: "Testnet actions have been paused." }, 409);
-      await verifyP2Adapter(getP2Config(c.env));
+      const config = getP2Config(c.env);
+      if (!config.writesEnabled) return c.json({ error: "Arc Mainnet actions have been paused." }, 409);
+      if (action.chainId !== config.chainId || action.vault.toLowerCase() !== config.vault.toLowerCase() || action.asset.toLowerCase() !== config.asset.toLowerCase() || action.codeHash.toLowerCase() !== config.vaultCodeHash.toLowerCase()) throw new Error("The reviewed route changed.");
+      const expectedTarget = action.step === "action" ? config.bundle : action.kind === "deposit" ? config.asset : config.vault;
+      if (action.target.toLowerCase() !== expectedTarget.toLowerCase()) throw new Error("The reviewed transaction target changed.");
+      if (BigInt(action.gasLimitRaw) * await p2Client.getGasPrice() > BigInt(mapMandate(active!).rules.maxGasRaw)) throw new Error("The current gas price exceeds the mandate.");
+      await verifyP2Adapter(config);
       await p2Client.call({ account: action.wallet, to: action.target, data: action.calldata });
     } catch { return c.json({ error: "The adapter or simulation changed. Refresh the review." }, 409); }
     const next: PreparedAction = { ...action, state: "wallet_prompt" };
@@ -286,7 +296,7 @@ export function createP1Api(getRegistry: () => Promise<RegistryResponse>, verify
     if (!["wallet_prompt", "submitted", "unknown", "dropped"].includes(action.state)) return c.json({ error: "This action is not waiting for a wallet transaction." }, 409);
     let tx;
     try { tx = await p2Client.getTransaction({ hash: body.hash as `0x${string}` }); }
-    catch { return c.json({ error: "Transaction is not visible on Arc Testnet yet. Retry recording this hash; do not send another transaction." }, 425); }
+    catch { return c.json({ error: "Transaction is not visible on Arc Mainnet yet. Retry recording this hash; do not send another transaction." }, 425); }
     if (tx.from.toLowerCase() !== current.wallet || tx.to?.toLowerCase() !== action.target.toLowerCase() || tx.input.toLowerCase() !== action.calldata.toLowerCase() || tx.value !== 0n || tx.chainId !== action.chainId) return c.json({ error: "Transaction does not match the approved review." }, 409);
     if (action.state !== "wallet_prompt" && (action.txNonce === null || action.txNonce === undefined || tx.nonce !== action.txNonce)) return c.json({ error: "Replacement transaction must use the original wallet nonce." }, 409);
     const next: PreparedAction = { ...action, state: "submitted", txHash: body.hash as `0x${string}`, txNonce: tx.nonce, submittedAt: new Date().toISOString(), message: null };
@@ -318,7 +328,7 @@ export function createP1Api(getRegistry: () => Promise<RegistryResponse>, verify
       catch { replacementPossible = true; }
     }
     const state = receiptState(receipt, notFound && !replacementPossible, Date.now() - Date.parse(action.submittedAt ?? found.row.updated_at));
-    const next: PreparedAction = { ...action, state, message: state === "reverted" ? "The transaction reverted on Arc Testnet." : state === "dropped" ? "This transaction was not found after 30 minutes." : replacementPossible ? "The original hash is missing and the wallet nonce advanced. A replacement may have landed; track its new hash below." : state === "unknown" ? "Receipt pending or RPC unavailable. Check the explorer before retrying." : null };
+    const next: PreparedAction = { ...action, state, message: state === "reverted" ? "The transaction reverted on Arc Mainnet." : state === "dropped" ? "This transaction was not found after 30 minutes." : replacementPossible ? "The original hash is missing and the wallet nonce advanced. A replacement may have landed; track its new hash below." : state === "unknown" ? "Receipt pending or RPC unavailable. Check the explorer before retrying." : null };
     if (next.state !== action.state) await c.env.DB!.prepare("UPDATE p2_actions SET action_json = ?, state = ?, updated_at = ? WHERE id = ? AND wallet = ?").bind(json(next), next.state, new Date().toISOString(), next.id, current.wallet).run();
     return c.json(next);
   });

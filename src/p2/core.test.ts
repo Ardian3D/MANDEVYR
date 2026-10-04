@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { canPrompt, isExpired, parsePositiveRaw, receiptState, type PreparedAction } from "./core";
-import { getP2Config } from "./adapter";
+import { getP2Config, readExactApproval, verifyBundleCalldata } from "./adapter";
+import { encodeFunctionData, parseAbi, zeroAddress, zeroHash } from "viem";
+import type { ActionRequirement } from "@morpho-org/morpho-sdk";
+import { vaultBundlesV1Abi } from "@morpho-org/morpho-sdk/abis";
 
 const action = {
   state: "preflight_ready", wallet: "0x1111111111111111111111111111111111111111",
-  chainId: 5042002, validUntil: new Date(61_000).toISOString(),
+  chainId: 5042, validUntil: new Date(61_000).toISOString(),
 } as unknown as PreparedAction;
 
 describe("P2 action gates", () => {
@@ -17,10 +20,10 @@ describe("P2 action gates", () => {
   it("expires exactly at the valid-until boundary and blocks wrong chain or wallet", () => {
     expect(isExpired(action, 60_999)).toBe(false);
     expect(isExpired(action, 61_000)).toBe(true);
-    expect(canPrompt(action, action.wallet, 5042002, 60_999)).toBe(true);
-    expect(canPrompt(action, action.wallet, 5042, 60_999)).toBe(false);
-    expect(canPrompt(action, "0x2222222222222222222222222222222222222222", 5042002, 60_999)).toBe(false);
-    expect(canPrompt({ ...action, state: "wallet_prompt" }, action.wallet, 5042002, 60_999)).toBe(false);
+    expect(canPrompt(action, action.wallet, 5042, 60_999)).toBe(true);
+    expect(canPrompt(action, action.wallet, 5042002, 60_999)).toBe(false);
+    expect(canPrompt(action, "0x2222222222222222222222222222222222222222", 5042, 60_999)).toBe(false);
+    expect(canPrompt({ ...action, state: "wallet_prompt" }, action.wallet, 5042, 60_999)).toBe(false);
   });
 
   it("only marks success after a successful receipt, not after a wallet hash", () => {
@@ -31,9 +34,36 @@ describe("P2 action gates", () => {
     expect(receiptState({ status: "success" }, false, 100)).toBe("confirmed");
   });
 
-  it("keeps the adapter closed without reviewed code hashes and an explicit switch", () => {
+  it("pins Galaxy USDC but keeps wallet transactions off without the mainnet switch", () => {
+    expect(getP2Config({}).chainId).toBe(5042);
+    expect(getP2Config({}).configured).toBe(true);
     expect(getP2Config({}).writesEnabled).toBe(false);
-    expect(getP2Config({ P2_WRITES_ENABLED: "true" }).configured).toBe(false);
-    expect(getP2Config({ P2_TESTNET_VAULT: "0x1111111111111111111111111111111111111111", P2_TESTNET_ROUTER: "0x2222222222222222222222222222222222222222", P2_TESTNET_VAULT_CODE_HASH: "0x" + "a".repeat(64), P2_TESTNET_ROUTER_CODE_HASH: "0x" + "b".repeat(64) }).writesEnabled).toBe(false);
+    expect(getP2Config({ P2_MAINNET_WRITES_ENABLED: "true" }).writesEnabled).toBe(true);
+    expect(getP2Config({ P2_MAINNET_WRITES_ENABLED: "TRUE" }).writesEnabled).toBe(false);
+  });
+
+  it("accepts only one exact Morpho bundle approval call", () => {
+    const token = "0x3600000000000000000000000000000000000000";
+    const bundle = "0x76c1dEefAe48523E14903085081Bda2999450b68";
+    const calldata = encodeFunctionData({ abi: parseAbi(["function approve(address,uint256) returns (bool)"]), functionName: "approve", args: [bundle, 1000000n] });
+    const call = { to: token, data: calldata, value: 0n } as unknown as ActionRequirement;
+    expect(readExactApproval([], token, bundle)).toBeNull();
+    expect(readExactApproval([call], token, bundle)?.amount).toBe(1000000n);
+    expect(() => readExactApproval([call], token, action.wallet as `0x${string}`)).toThrow();
+    expect(() => readExactApproval([{ ...call, to: bundle } as ActionRequirement], token, bundle)).toThrow();
+    expect(() => readExactApproval([call, call], token, bundle)).toThrow();
+  });
+
+  it("rejects bundle calldata for another amount, vault, or referral fee", () => {
+    const vault = getP2Config({}).vault;
+    const deadline = 1_800_000_000n;
+    const deposit = (fee: bigint) => encodeFunctionData({ abi: vaultBundlesV1Abi, functionName: "vaultBundlesV1Deposit", args: [vault, 1_000_000n, 1_000_000_000_000_000n, { kind: 0, data: "0x" }, fee, zeroAddress, deadline] });
+    expect(() => verifyBundleCalldata(deposit(0n), "deposit", vault, 1_000_000n, deadline)).not.toThrow();
+    expect(() => verifyBundleCalldata(deposit(0n), "deposit", vault, 2_000_000n, deadline)).toThrow();
+    expect(() => verifyBundleCalldata(deposit(0n), "deposit", "0x1111111111111111111111111111111111111111", 1_000_000n, deadline)).toThrow();
+    expect(() => verifyBundleCalldata(deposit(1n), "deposit", vault, 1_000_000n, deadline)).toThrow();
+    const withdraw = encodeFunctionData({ abi: vaultBundlesV1Abi, functionName: "vaultBundlesV1Withdraw", args: [vault, 1_000_000n, 0n, { value: 0n, nonce: 0n, deadline, v: 0, r: zeroHash, s: zeroHash }, 0n, zeroAddress, deadline] });
+    expect(() => verifyBundleCalldata(withdraw, "withdraw", vault, 1_000_000n, deadline)).not.toThrow();
+    expect(() => verifyBundleCalldata(withdraw, "deposit", vault, 1_000_000n, deadline)).toThrow();
   });
 });

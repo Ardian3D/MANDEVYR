@@ -1,6 +1,6 @@
-export const P2_CHAIN_ID = 5042002;
-export const P2_RPC = "https://rpc.testnet.arc.io";
-export const P2_EXPLORER = "https://explorer.testnet.arc.io";
+export const P2_CHAIN_ID = 5042;
+export const P2_RPC = "https://rpc.mainnet.arc.io";
+export const P2_EXPLORER = "https://explorer.arc.io";
 export const P2_USDC = "0x3600000000000000000000000000000000000000";
 export const P2_QUOTE_TTL_MS = 60_000;
 
@@ -21,7 +21,7 @@ export type PreparedAction = {
   amountRaw: string;
   previewRaw: string;
   minSharesRaw: string | null;
-  previewLabel: "shares received" | "shares burned";
+  previewLabel: "estimated shares received" | "estimated shares to burn";
   allowanceRaw: string | null;
   approvalAmountRaw: string | null;
   gasLimitRaw: string;
@@ -68,7 +68,7 @@ export function receiptState(receipt: { status: "success" | "reverted" } | null,
 export function formatP2Error(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
   if (/user rejected|user denied|4001/i.test(message)) return "You cancelled the wallet request. No transaction was sent.";
-  if (/insufficient funds/i.test(message)) return "Your wallet does not have enough testnet USDC for the amount and gas.";
+  if (/insufficient funds/i.test(message)) return "Your wallet does not have enough Arc Mainnet USDC for the amount and gas.";
   if (/allowance|transfer amount exceeds/i.test(message)) return "The token allowance is too low. Refresh the review and approve the exact amount first.";
   return "The action could not be prepared or verified. Refresh the review before trying again.";
 }

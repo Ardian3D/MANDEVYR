@@ -334,8 +334,8 @@ export function Workspace() {
         </>}
       </nav>
         <div className="p0-side-foot">
-          <div className="p0-network-mark"><span className="p0-pulse" /> {isP2 ? "Arc Testnet fixture" : "Read only on Arc"}</div>
-        <p>{isP2 ? "Testnet transactions require your wallet confirmation. Mainnet actions remain off." : "Make sense of what is onchain. Keep the final call in your hands."}</p>
+          <div className="p0-network-mark"><span className="p0-pulse" /> {isP2 ? "Galaxy USDC on Arc" : "Read only on Arc"}</div>
+        <p>{isP2 ? "Review Galaxy USDC on Arc Mainnet. Every action requires your wallet confirmation." : "Make sense of what is onchain. Keep the final call in your hands."}</p>
         <Link to="/docs">Read the methodology <ArrowUpRight size={14} /></Link>
       </div>
     </aside>
@@ -344,7 +344,7 @@ export function Workspace() {
         <button className="p0-mobile-menu" type="button" onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? "Close menu" : "Open menu"}>{menuOpen ? <X size={20} /> : <Menu size={20} />}</button>
         <div className="p0-breadcrumb"><Link to="/app">MANDEVYR</Link><span>/</span><span>{opportunityId ? "Opportunity" : isP1 ? isP2 ? "Actions" : location.pathname === "/app/mandate" ? "Mandate" : location.pathname === "/app/watch" ? "Watchtower" : location.pathname === "/app/history" ? "History" : "Preflight" : isWatchlist ? "Watchlist" : location.pathname === "/app/explore" ? "Explore" : "Overview"}</span></div>
         <div className="p0-top-actions">
-          <span className="p0-mainnet-label"><span /> {isP2 ? "Arc Testnet" : "Arc Mainnet"}</span>
+          <span className="p0-mainnet-label"><span /> Arc Mainnet</span>
           {wallet ? (isP2 || walletChain === 5042) ? <button type="button" className="p0-wallet-connected" onClick={openWalletDialog} aria-label={`Wallet ${shortAddress(wallet)}. Open wallet menu`}><Wallet size={15} /> {shortAddress(wallet)} <ChevronDown size={13} /></button> : <><button type="button" className="p0-wallet-switch" onClick={() => void switchArc()} disabled={walletBusy}>Switch to Arc <ArrowRight size={15} /></button><button type="button" className="p0-wallet-change" onClick={openWalletDialog} aria-label="Choose another wallet"><Wallet size={17} /></button></> : <button type="button" className="p0-wallet-button" onClick={openWalletDialog}><Wallet size={16} /> Connect wallet</button>}
         </div>
       </header>

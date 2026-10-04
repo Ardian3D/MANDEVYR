@@ -6,10 +6,10 @@ import type { PreparedAction } from "./core.ts";
 const wallet = "0x1111111111111111111111111111111111111111";
 const target = "0x2222222222222222222222222222222222222222";
 const hash = `0x${"a".repeat(64)}` as `0x${string}`;
-const submitted = { id: "act_receipt", wallet, target, calldata: "0x1234", txHash: hash, txNonce: 3, chainId: 5042002, state: "submitted", submittedAt: new Date(Date.now() - 31 * 60_000).toISOString() } as unknown as PreparedAction;
+const submitted = { id: "act_receipt", wallet, target, calldata: "0x1234", txHash: hash, txNonce: 3, chainId: 5042, state: "submitted", submittedAt: new Date(Date.now() - 31 * 60_000).toISOString() } as unknown as PreparedAction;
 
-function harness() {
-  let action = { ...submitted };
+function harness(chainId = 5042) {
+  let action = { ...submitted, chainId };
   const db = { prepare(query: string) {
     let params: unknown[] = [];
     return {
@@ -28,6 +28,7 @@ function harness() {
   } };
   const app = createP1Api(async () => ({ items: [] }) as never, async () => false);
   return {
+    getStatus: async () => (await app.request(`http://localhost/actions/${action.id}`, { headers: { Cookie: `mandevyr_session=${"a".repeat(64)}` } }, { DB: db })).status,
     get: async () => {
       const response = await app.request(`http://localhost/actions/${action.id}`, { headers: { Cookie: `mandevyr_session=${"a".repeat(64)}` } }, { DB: db });
       expect(response.status).toBe(200);
@@ -43,6 +44,11 @@ function harness() {
 afterEach(() => vi.restoreAllMocks());
 
 describe("P2 receipt reconciliation", () => {
+  it("does not expose an old Arc Testnet action through the mainnet endpoint", async () => {
+    const api = harness(5042002);
+    expect(await api.getStatus()).toBe(404);
+    expect((await api.record(hash)).status).toBe(404);
+  });
   it("keeps provider timeouts unknown even after thirty minutes", async () => {
     vi.spyOn(p2Client, "getTransaction").mockRejectedValue(new Error("RPC timeout"));
     const action = await harness().get();
@@ -67,10 +73,10 @@ describe("P2 receipt reconciliation", () => {
   it("accepts a replacement hash only for the same wallet nonce and call", async () => {
     const transaction = vi.spyOn(p2Client, "getTransaction");
     const replacement = `0x${"b".repeat(64)}`;
-    transaction.mockResolvedValueOnce({ from: wallet, to: target, input: "0x1234", value: 0n, chainId: 5042002, nonce: 4 } as never);
+    transaction.mockResolvedValueOnce({ from: wallet, to: target, input: "0x1234", value: 0n, chainId: 5042, nonce: 4 } as never);
     const api = harness();
     expect((await api.record(replacement)).status).toBe(409);
-    transaction.mockResolvedValueOnce({ from: wallet, to: target, input: "0x1234", value: 0n, chainId: 5042002, nonce: 3 } as never);
+    transaction.mockResolvedValueOnce({ from: wallet, to: target, input: "0x1234", value: 0n, chainId: 5042, nonce: 3 } as never);
     const recorded = await api.record(replacement);
     expect(recorded.status).toBe(200);
     expect(recorded.data.txHash).toBe(replacement);
