@@ -8,6 +8,10 @@ const intent: DepositIntent = { kind: "vault_deposit", chainId: 5042, targetId: 
 const run = (changes: Partial<DepositIntent> = {}, snapshot = vault, rules = MANDATE_TEMPLATES.balanced) => evaluateDeposit({ intent: { ...intent, ...changes }, vault: snapshot, rules, now });
 
 describe("P1 research preflight", () => {
+  it("requires separate valid EURC action and daily caps", () => {
+    expect(() => validateRules({ ...MANDATE_TEMPLATES.balanced, maxEurcActionRaw: "1000000", maxEurcDailyRaw: "500000" })).toThrow();
+    expect(validateRules({ ...MANDATE_TEMPLATES.balanced, maxEurcActionRaw: "1000000", maxEurcDailyRaw: "2000000" }).maxEurcDailyRaw).toBe("2000000");
+  });
   it("blocks wrong chain, target, and action limit before unknown evidence", () => {
     const result = run({ chainId: 1, targetAddress: "0x0000000000000000000000000000000000000001", amountRaw: "600000000" });
     expect(result.verdict).toBe("BLOCK");

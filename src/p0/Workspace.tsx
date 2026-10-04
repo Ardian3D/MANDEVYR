@@ -334,8 +334,8 @@ export function Workspace() {
         </>}
       </nav>
         <div className="p0-side-foot">
-          <div className="p0-network-mark"><span className="p0-pulse" /> {isP2 ? "Galaxy USDC on Arc" : "Read only on Arc"}</div>
-        <p>{isP2 ? "Review Galaxy USDC on Arc Mainnet. Every action requires your wallet confirmation." : "Make sense of what is onchain. Keep the final call in your hands."}</p>
+          <div className="p0-network-mark"><span className="p0-pulse" /> {isP2 ? "Morpho vaults on Arc" : "Read only on Arc"}</div>
+        <p>{isP2 ? "Review Morpho vault actions on Arc Mainnet. Every action requires your wallet confirmation." : "Make sense of what is onchain. Keep the final call in your hands."}</p>
         <Link to="/docs">Read the methodology <ArrowUpRight size={14} /></Link>
       </div>
     </aside>

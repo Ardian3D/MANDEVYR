@@ -11,10 +11,13 @@ export type PreparedAction = {
   id: string;
   chainId: typeof P2_CHAIN_ID;
   wallet: `0x${string}`;
+  vaultId: string;
+  vaultName: string;
   vault: `0x${string}`;
   target: `0x${string}`;
   calldata: `0x${string}`;
   asset: `0x${string}`;
+  assetSymbol: "USDC" | "EURC";
   assetDecimals: number;
   shareDecimals: number;
   kind: ActionKind;
@@ -50,6 +53,13 @@ export function parsePositiveRaw(value: unknown): bigint {
   return raw;
 }
 
+export function reservedDepositRaw(actions: PreparedAction[], asset: string): bigint {
+  return actions.reduce((sum, action) => sum + (
+    action.chainId === P2_CHAIN_ID && action.asset.toLowerCase() === asset.toLowerCase() && action.kind === "deposit" && action.step === "action"
+      ? BigInt(action.amountRaw) : 0n
+  ), 0n);
+}
+
 export function isExpired(action: Pick<PreparedAction, "validUntil">, now = Date.now()): boolean {
   return !Number.isFinite(Date.parse(action.validUntil)) || now >= Date.parse(action.validUntil);
 }
@@ -68,7 +78,7 @@ export function receiptState(receipt: { status: "success" | "reverted" } | null,
 export function formatP2Error(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
   if (/user rejected|user denied|4001/i.test(message)) return "You cancelled the wallet request. No transaction was sent.";
-  if (/insufficient funds/i.test(message)) return "Your wallet does not have enough Arc Mainnet USDC for the amount and gas.";
+  if (/insufficient funds/i.test(message)) return "Your wallet does not have enough asset balance or native Arc USDC for gas.";
   if (/allowance|transfer amount exceeds/i.test(message)) return "The token allowance is too low. Refresh the review and approve the exact amount first.";
   return "The action could not be prepared or verified. Refresh the review before trying again.";
 }

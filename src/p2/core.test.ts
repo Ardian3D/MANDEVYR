@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canPrompt, isExpired, parsePositiveRaw, receiptState, type PreparedAction } from "./core";
+import { canPrompt, isExpired, parsePositiveRaw, receiptState, reservedDepositRaw, type PreparedAction } from "./core";
 import { getP2Config, readExactApproval, verifyBundleCalldata } from "./adapter";
 import { encodeFunctionData, parseAbi, zeroAddress, zeroHash } from "viem";
 import type { ActionRequirement } from "@morpho-org/morpho-sdk";
@@ -40,6 +40,26 @@ describe("P2 action gates", () => {
     expect(getP2Config({}).writesEnabled).toBe(false);
     expect(getP2Config({ P2_MAINNET_WRITES_ENABLED: "true" }).writesEnabled).toBe(true);
     expect(getP2Config({ P2_MAINNET_WRITES_ENABLED: "TRUE" }).writesEnabled).toBe(false);
+  });
+
+  it("pins all three reviewed Arc Mainnet vault routes and rejects unknown vaults", () => {
+    const config = getP2Config({});
+    expect(config.vaults.map((vault) => vault.id)).toEqual(["galaxy-usdc", "gauntlet-usdc-prime", "gauntlet-eurc-prime"]);
+    expect(getP2Config({}, "gauntlet-usdc-prime").assetSymbol).toBe("USDC");
+    const eurc = getP2Config({}, "gauntlet-eurc-prime");
+    expect(eurc.assetSymbol).toBe("EURC");
+    expect(eurc.asset.toLowerCase()).toBe("0xbef5f6d51cb62b58e6a8f77868681825c6fe21c1");
+    expect(eurc.vaultCodeHash).not.toBe(config.vaultCodeHash);
+    expect(() => getP2Config({}, "unknown-vault")).toThrow();
+  });
+
+  it("keeps 24-hour reserves on the same asset across vaults and excludes approvals and testnet", () => {
+    const usdc = getP2Config({}).asset;
+    const eurc = getP2Config({}, "gauntlet-eurc-prime").asset;
+    const item = (asset: string, amountRaw: string, step: "action" | "approval", chainId = 5042) => ({ asset, amountRaw, step, chainId, kind: "deposit" }) as PreparedAction;
+    const actions = [item(usdc, "100", "action"), item(usdc, "200", "action"), item(eurc, "300", "action"), item(usdc, "400", "approval"), item(usdc, "500", "action", 5042002)];
+    expect(reservedDepositRaw(actions, usdc)).toBe(300n);
+    expect(reservedDepositRaw(actions, eurc)).toBe(300n);
   });
 
   it("accepts only one exact Morpho bundle approval call", () => {

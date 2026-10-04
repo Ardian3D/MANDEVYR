@@ -50,6 +50,8 @@ The selected wallet preference is stored in this browser. On another app tab, th
 
 P1 is available in Vite development at `/app/mandate`, `/app/preflight/new`, `/app/history`, and `/app/watch`. It adds wallet sign-in via SIWE, versioned mandates, immutable research preflights, private report history, a synced watchlist, and an in-app Watchtower inbox. The Worker checks watched vaults every 15 minutes and alerts only when source availability changes. It does not monitor APY, prove withdrawal liquidity, or make transactions.
 
+P2 is implemented locally at `/app/actions` for the three curated Arc Mainnet Morpho Vault V2 vaults: Galaxy USDC, Gauntlet USDC Prime, and Gauntlet EURC Prime. Wallet actions require the separate `P2_MAINNET_WRITES_ENABLED=true` runtime switch, an active mandate, and explicit wallet confirmation. EURC deposits also require separate EURC action and daily caps saved in a new mandate. The public site remains P0; P2 has not been pushed or deployed, and funded mainnet approval/deposit/withdraw transactions have not been verified. See [P2_IMPLEMENTATION.md](./P2_IMPLEMENTATION.md).
+
 The local Cloudflare D1 database is configured with a placeholder ID that is valid only for local development. Apply its migration before using P1:
 
 ```bash

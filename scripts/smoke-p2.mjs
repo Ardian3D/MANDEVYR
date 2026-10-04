@@ -14,18 +14,21 @@ async function call(path, method = "GET", body, expectedStatus = 200) {
 }
 
 const config = await call("/actions/config");
-if (config.chainId !== 5042 || config.vault?.toLowerCase() !== "0x8e357432cc12ff425c36432f312968aeb16112af") throw new Error("Galaxy USDC on Arc Mainnet is not configured");
+if (config.chainId !== 5042 || config.vaults?.length !== 3 || !config.vaults.every((vault) => vault.vault && vault.asset && ["USDC", "EURC"].includes(vault.assetSymbol))) throw new Error("Reviewed Morpho vaults on Arc Mainnet are not configured");
 await call("/actions", "GET", undefined, 401);
 const { nonce } = await call("/auth/nonce", "POST");
 const issuedAt = new Date();
 const message = createSiweMessage({ address: account.address, chainId: 5042, domain: new URL(origin).host, uri: origin, version: "1", nonce, issuedAt, expirationTime: new Date(issuedAt.getTime() + 300_000) });
 await call("/auth/verify", "POST", { message, signature: await account.signMessage({ message }) });
-await call("/mandates", "POST", { rules: { maxActionRaw: "100000000", maxDailyRaw: "300000000", maxGasRaw: "100000000000000000", allowedAssets: ["USDC"], deniedTargets: [], requireAvailableWithdrawal: false, maxEvidenceAgeSeconds: 120, manualApproval: true } }, 201);
-await call("/actions/prepare", "POST", { kind: "deposit", amountRaw: "not-a-number", idempotencyKey: crypto.randomUUID() }, 400);
-await call("/actions/prepare", "POST", { kind: "deposit", amountRaw: "1000000", idempotencyKey: crypto.randomUUID() }, 409);
+await call("/mandates", "POST", { rules: { maxActionRaw: "100000000", maxDailyRaw: "300000000", maxEurcActionRaw: "100000000", maxEurcDailyRaw: "300000000", maxGasRaw: "100000000000000000", allowedAssets: ["USDC", "EURC"], deniedTargets: [], requireAvailableWithdrawal: false, maxEvidenceAgeSeconds: 120, manualApproval: true } }, 201);
+await call("/actions/prepare", "POST", { vaultId: "unknown-vault", kind: "deposit", amountRaw: "1000000", idempotencyKey: crypto.randomUUID() }, 400);
+for (const vault of config.vaults) {
+  await call("/actions/prepare", "POST", { vaultId: vault.id, kind: "deposit", amountRaw: "not-a-number", idempotencyKey: crypto.randomUUID() }, 400);
+  await call("/actions/prepare", "POST", { vaultId: vault.id, kind: "deposit", amountRaw: "1000000", idempotencyKey: crypto.randomUUID() }, 409);
+}
 const actions = await call("/actions");
 if (actions.items.length) throw new Error("Rejected mainnet review saved an action");
 const exported = await call("/data/export");
 if (!Array.isArray(exported.actions) || exported.actions.length) throw new Error("P2 export is not scoped or empty");
 await call("/data/delete", "POST", { confirm: "DELETE" });
-console.log(JSON.stringify({ guestActions: "blocked", mainnetGalaxy: "ok", writesEnabled: config.writesEnabled, invalidAmount: "blocked", unfundedPrepare: "blocked", export: "ok", deletion: "ok" }));
+console.log(JSON.stringify({ guestActions: "blocked", mainnetVaults: config.vaults.map((vault) => vault.id), writesEnabled: config.writesEnabled, invalidAmount: "blocked", unfundedPrepare: "blocked", export: "ok", deletion: "ok" }));

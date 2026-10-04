@@ -22,6 +22,8 @@
 .p2-card p { color: #91a58d; font-size: 12px; line-height: 1.7; }
 .p2-card-top { display: flex; justify-content: space-between; gap: 18px; }
 .p2-card-top > span { color: #a8c29e; font-size: 11px; white-space: nowrap; }
+.p2-vault-select { display: grid; gap: 10px; margin-top: 25px; color: #b9cbb4; font-size: 12px; }
+.p2-vault-select select { width: 100%; min-height: 47px; padding: 0 14px; border: 1px solid #b8d4b836; border-radius: 9px; background: #0b110c; color: #ebf1e8; font: inherit; font-size: 14px; }
 .p2-tabs { display: inline-flex; gap: 3px; margin: 25px 0 24px; padding: 4px; border: 1px solid #c8dfbe2a; border-radius: 10px; background: #0b100c; }
 .p2-tabs button { min-width: 102px; padding: 10px 17px; border-radius: 7px; color: #9bad97; font-size: 12px; }
 .p2-tabs button.active { background: #c5dfba; color: #172316; }

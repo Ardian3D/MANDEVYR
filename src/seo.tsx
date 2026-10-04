@@ -23,8 +23,8 @@ const pages = {
   },
   actions: {
     path: "/app/actions",
-    title: "Galaxy USDC Actions on Arc | MANDEVYR",
-    description: "Review Galaxy USDC deposits and withdrawals on Arc Mainnet with wallet confirmation and Morpho Vault V2 contract checks.",
+    title: "Morpho Vault Actions on Arc | MANDEVYR",
+    description: "Review deposits and withdrawals for curated Morpho Vault V2 vaults on Arc Mainnet with wallet confirmation and contract checks.",
     robots: "noindex,follow",
   },
 } as const;

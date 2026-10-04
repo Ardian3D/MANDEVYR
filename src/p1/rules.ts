@@ -9,6 +9,8 @@ export type Reason = { code: string; severity: Verdict; text: string };
 export type MandateRules = {
   maxActionRaw: string;
   maxDailyRaw: string;
+  maxEurcActionRaw?: string;
+  maxEurcDailyRaw?: string;
   maxGasRaw: string;
   allowedAssets: ("USDC" | "EURC")[];
   deniedTargets: string[];
@@ -62,9 +64,9 @@ export type PreflightReport = {
 };
 
 export const MANDATE_TEMPLATES: Record<"conservative" | "balanced" | "explorer", MandateRules> = {
-  conservative: { maxActionRaw: "100000000", maxDailyRaw: "300000000", maxGasRaw: "100000000000000000", allowedAssets: ["USDC"], deniedTargets: [], requireAvailableWithdrawal: true, maxEvidenceAgeSeconds: 60, manualApproval: true },
-  balanced: { maxActionRaw: "500000000", maxDailyRaw: "1500000000", maxGasRaw: "250000000000000000", allowedAssets: ["USDC", "EURC"], deniedTargets: [], requireAvailableWithdrawal: false, maxEvidenceAgeSeconds: 120, manualApproval: true },
-  explorer: { maxActionRaw: "2000000000", maxDailyRaw: "5000000000", maxGasRaw: "500000000000000000", allowedAssets: ["USDC", "EURC"], deniedTargets: [], requireAvailableWithdrawal: false, maxEvidenceAgeSeconds: 120, manualApproval: true },
+  conservative: { maxActionRaw: "100000000", maxDailyRaw: "300000000", maxEurcActionRaw: "0", maxEurcDailyRaw: "0", maxGasRaw: "100000000000000000", allowedAssets: ["USDC"], deniedTargets: [], requireAvailableWithdrawal: true, maxEvidenceAgeSeconds: 60, manualApproval: true },
+  balanced: { maxActionRaw: "500000000", maxDailyRaw: "1500000000", maxEurcActionRaw: "0", maxEurcDailyRaw: "0", maxGasRaw: "250000000000000000", allowedAssets: ["USDC", "EURC"], deniedTargets: [], requireAvailableWithdrawal: false, maxEvidenceAgeSeconds: 120, manualApproval: true },
+  explorer: { maxActionRaw: "2000000000", maxDailyRaw: "5000000000", maxEurcActionRaw: "0", maxEurcDailyRaw: "0", maxGasRaw: "500000000000000000", allowedAssets: ["USDC", "EURC"], deniedTargets: [], requireAvailableWithdrawal: false, maxEvidenceAgeSeconds: 120, manualApproval: true },
 };
 
 function uint(value: unknown): value is string {
@@ -75,6 +77,9 @@ export function validateRules(value: unknown): MandateRules {
   if (!value || typeof value !== "object") throw new Error("Mandate rules are required.");
   const rules = value as Partial<MandateRules>;
   if (!uint(rules.maxActionRaw) || BigInt(rules.maxActionRaw) === 0n || !uint(rules.maxDailyRaw) || BigInt(rules.maxDailyRaw) < BigInt(rules.maxActionRaw)) throw new Error("Set a valid action limit and a daily limit at least as large.");
+  if (rules.maxEurcActionRaw !== undefined || rules.maxEurcDailyRaw !== undefined) {
+    if (!uint(rules.maxEurcActionRaw) || !uint(rules.maxEurcDailyRaw) || BigInt(rules.maxEurcDailyRaw) < BigInt(rules.maxEurcActionRaw)) throw new Error("Set valid EURC limits with a daily limit at least as large as the action limit.");
+  }
   if (!uint(rules.maxGasRaw)) throw new Error("Set a valid gas limit.");
   if (!Array.isArray(rules.allowedAssets) || rules.allowedAssets.length === 0 || rules.allowedAssets.some((asset) => asset !== "USDC" && asset !== "EURC")) throw new Error("Choose USDC and/or EURC.");
   if (!Array.isArray(rules.deniedTargets) || rules.deniedTargets.length > 20 || rules.deniedTargets.some((target) => typeof target !== "string" || target.length > 100)) throw new Error("Invalid blocked target list.");
