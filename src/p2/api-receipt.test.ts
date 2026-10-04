@@ -83,11 +83,20 @@ describe("P2 receipt reconciliation", () => {
   });
 
   it("uses the onchain receipt for success and failure", async () => {
-    vi.spyOn(p2Client, "getTransaction").mockResolvedValue({ from: wallet, to: target, input: "0x1234" } as never);
+    vi.spyOn(p2Client, "getTransaction").mockResolvedValue({ from: wallet, to: target, input: "0x1234", value: 0n, chainId: 5042, nonce: 3 } as never);
     const receipt = vi.spyOn(p2Client, "getTransactionReceipt");
     receipt.mockResolvedValueOnce({ status: "reverted" } as never);
     expect((await harness().get()).state).toBe("reverted");
     receipt.mockResolvedValueOnce({ status: "success" } as never);
     expect((await harness().get()).state).toBe("confirmed");
+  });
+
+  it("rejects wrong-chain, nonzero-value, and wrong-nonce transactions during receipt polling", async () => {
+    const tx = vi.spyOn(p2Client, "getTransaction");
+    const correct = { from: wallet, to: target, input: "0x1234", value: 0n, chainId: 5042, nonce: 3 };
+    for (const mismatch of [{ chainId: 5042002 }, { value: 1n }, { nonce: 4 }]) {
+      tx.mockResolvedValueOnce({ ...correct, ...mismatch } as never);
+      expect(await harness().getStatus()).toBe(409);
+    }
   });
 });

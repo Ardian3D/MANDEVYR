@@ -1,0 +1,105 @@
+{
+  "checkedAt": "2026-10-04T09:14:42.220Z",
+  "chainId": 5042,
+  "rpc": "https://rpc.mainnet.arc.io",
+  "writesEnabledByDefault": false,
+  "fundedRoundTrip": "not_run",
+  "vaults": [
+    {
+      "id": "galaxy-usdc",
+      "vault": "0x8E357432CC12ff425c36432F312968aEb16112AF",
+      "asset": "0x3600000000000000000000000000000000000000",
+      "symbol": "USDC",
+      "codeHash": "0xac3d89c4bed30ede74f4e94e9c0e124a13ed24d0e011181515996362879bae57",
+      "blockNumber": "24197150",
+      "observedAt": "2026-10-04T09:14:42.000Z",
+      "identity": "matched",
+      "assetDecimals": 6,
+      "shareDecimals": 18,
+      "routes": [
+        {
+          "kind": "deposit",
+          "bundle": "0x76c1dEefAe48523E14903085081Bda2999450b68",
+          "approvalTarget": "0x3600000000000000000000000000000000000000",
+          "approvalAmountRaw": "1000000",
+          "approvalSimulation": "passed",
+          "bundleCalldata": "matched",
+          "finalFundedSimulation": "not_run"
+        },
+        {
+          "kind": "withdraw",
+          "bundle": "0x76c1dEefAe48523E14903085081Bda2999450b68",
+          "approvalTarget": "0x8E357432CC12ff425c36432F312968aEb16112AF",
+          "approvalAmountRaw": "1001371153700519344",
+          "approvalSimulation": "passed",
+          "bundleCalldata": "matched",
+          "finalFundedSimulation": "not_run"
+        }
+      ]
+    },
+    {
+      "id": "gauntlet-usdc-prime",
+      "vault": "0xdECcd53BE5453215821184824B519E04C7e00bC7",
+      "asset": "0x3600000000000000000000000000000000000000",
+      "symbol": "USDC",
+      "codeHash": "0xac3d89c4bed30ede74f4e94e9c0e124a13ed24d0e011181515996362879bae57",
+      "blockNumber": "24197157",
+      "observedAt": "2026-10-04T09:14:45.000Z",
+      "identity": "matched",
+      "assetDecimals": 6,
+      "shareDecimals": 18,
+      "routes": [
+        {
+          "kind": "deposit",
+          "bundle": "0x76c1dEefAe48523E14903085081Bda2999450b68",
+          "approvalTarget": "0x3600000000000000000000000000000000000000",
+          "approvalAmountRaw": "1000000",
+          "approvalSimulation": "passed",
+          "bundleCalldata": "matched",
+          "finalFundedSimulation": "not_run"
+        },
+        {
+          "kind": "withdraw",
+          "bundle": "0x76c1dEefAe48523E14903085081Bda2999450b68",
+          "approvalTarget": "0xdECcd53BE5453215821184824B519E04C7e00bC7",
+          "approvalAmountRaw": "1000667282499646227",
+          "approvalSimulation": "passed",
+          "bundleCalldata": "matched",
+          "finalFundedSimulation": "not_run"
+        }
+      ]
+    },
+    {
+      "id": "gauntlet-eurc-prime",
+      "vault": "0x05863F54B05e96092069eF30c9Ca6060336e50B9",
+      "asset": "0xbEf5f6d51CB62b58e6A8f77868681825C6fe21c1",
+      "symbol": "EURC",
+      "codeHash": "0x0d9a18645e4c23fd5698069edd84ca001b630b0aeff6dd64863debaa2f2dc511",
+      "blockNumber": "24197162",
+      "observedAt": "2026-10-04T09:14:48.000Z",
+      "identity": "matched",
+      "assetDecimals": 6,
+      "shareDecimals": 18,
+      "routes": [
+        {
+          "kind": "deposit",
+          "bundle": "0x76c1dEefAe48523E14903085081Bda2999450b68",
+          "approvalTarget": "0xbEf5f6d51CB62b58e6A8f77868681825C6fe21c1",
+          "approvalAmountRaw": "1000000",
+          "approvalSimulation": "passed",
+          "bundleCalldata": "matched",
+          "finalFundedSimulation": "not_run"
+        },
+        {
+          "kind": "withdraw",
+          "bundle": "0x76c1dEefAe48523E14903085081Bda2999450b68",
+          "approvalTarget": "0x05863F54B05e96092069eF30c9Ca6060336e50B9",
+          "approvalAmountRaw": "1000746051600928486",
+          "approvalSimulation": "passed",
+          "bundleCalldata": "matched",
+          "finalFundedSimulation": "not_run"
+        }
+      ]
+    }
+  ]
+}

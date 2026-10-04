@@ -52,6 +52,8 @@ P1 is available in Vite development at `/app/mandate`, `/app/preflight/new`, `/a
 
 P2 is implemented locally at `/app/actions` for the three curated Arc Mainnet Morpho Vault V2 vaults: Galaxy USDC, Gauntlet USDC Prime, and Gauntlet EURC Prime. Wallet actions require the separate `P2_MAINNET_WRITES_ENABLED=true` runtime switch, an active mandate, and explicit wallet confirmation. EURC deposits also require separate EURC action and daily caps saved in a new mandate. The public site remains P0; P2 has not been pushed or deployed, and funded mainnet approval/deposit/withdraw transactions have not been verified. See [P2_IMPLEMENTATION.md](./P2_IMPLEMENTATION.md).
 
+Apply all D1 migrations through `0004_p2_wallet_revision.sql` for the latest prompt concurrency checks. The Actions UI includes live contract evidence and responsive vault selection. Run `node --experimental-strip-types scripts/verify-p2-mainnet.mjs` for read-only identity, SDK route, and approval-call checks; the latest result is in [docs/p2-mainnet-verification.json](./docs/p2-mainnet-verification.json). This check never signs or broadcasts a transaction.
+
 The local Cloudflare D1 database is configured with a placeholder ID that is valid only for local development. Apply its migration before using P1:
 
 ```bash

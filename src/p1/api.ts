@@ -35,6 +35,7 @@ async function rateAllowed(db: P1Database, key: string, limit: number, windowSec
 
 export function createP1Api(getRegistry: () => Promise<RegistryResponse>, verifyMessage: (args: { message: string; signature: `0x${string}`; domain: string; nonce: string }) => Promise<boolean>) {
   const app = new Hono<Env>();
+  const evidenceCache = new Map<string, { until: number; value: { vaultId: string; chainId: number; blockNumber: string; observedAt: string; assetDecimals: number; shareDecimals: number } }>();
   app.use("*", async (c, next) => {
     c.header("Cache-Control", "no-store");
     const db = c.env?.DB;
@@ -212,16 +213,32 @@ export function createP1Api(getRegistry: () => Promise<RegistryResponse>, verify
     return c.json({ chainId: config.chainId, network: config.network, vaults: config.vaults, explorer: config.explorer, configured: config.configured, writesEnabled: config.writesEnabled });
   });
 
+  app.get("/actions/evidence/:vaultId", async (c) => {
+    const vaultId = c.req.param("vaultId");
+    if (!getP2Config(c.env).vaults.some((vault) => vault.id === vaultId)) return c.json({ error: "Unknown reviewed vault." }, 404);
+    const cached = evidenceCache.get(vaultId);
+    if (cached && cached.until > Date.now()) return c.json(cached.value);
+    try {
+      const observed = await verifyP2Adapter(getP2Config(c.env, vaultId));
+      const value = { vaultId, chainId: 5042, ...observed, blockNumber: observed.blockNumber.toString() };
+      evidenceCache.set(vaultId, { until: Date.now() + 15_000, value });
+      return c.json(value);
+    } catch { return c.json({ error: "Fresh contract evidence is unavailable. Wallet review will check again." }, 503); }
+  });
+
   app.post("/actions/prepare", async (c) => {
     const current = await session(c);
     if (!current) return c.json({ error: "Wallet sign-in required." }, 401);
     if (!await rateAllowed(c.env.DB!, `p2:${current.wallet}`, 30, 3600)) return c.json({ error: "Hourly action review limit reached." }, 429);
-    const body = await c.req.json().catch(() => null) as { vaultId?: unknown; kind?: unknown; amountRaw?: unknown; idempotencyKey?: unknown } | null;
+    const body = await c.req.json().catch(() => null) as { vaultId?: unknown; kind?: unknown; amountRaw?: unknown; idempotencyKey?: unknown; approvalId?: unknown } | null;
     if (typeof body?.vaultId !== "string" || !getP2Config(c.env).vaults.some((vault) => vault.id === body.vaultId) || (body?.kind !== "deposit" && body?.kind !== "withdraw") || typeof body.amountRaw !== "string" || typeof body.idempotencyKey !== "string" || !/^[a-zA-Z0-9_-]{8,80}$/.test(body.idempotencyKey)) return c.json({ error: "Choose a reviewed vault, action, amount, and review key." }, 400);
     const selected = getP2Config(c.env, body.vaultId);
+    if (body.approvalId !== undefined && (typeof body.approvalId !== "string" || body.approvalId.length > 80)) return c.json({ error: "Invalid approval reference." }, 400);
+    const approvedAction = typeof body.approvalId === "string" ? (await actionFor(c, current.wallet, body.approvalId))?.action : undefined;
+    if (body.approvalId && (!approvedAction || approvedAction.state !== "confirmed" || approvedAction.step !== "approval")) return c.json({ error: "Wait for the matching approval receipt before continuing." }, 409);
     let amountRaw: bigint;
     try { amountRaw = parsePositiveRaw(body.amountRaw); } catch (error) { return c.json({ error: error instanceof Error ? error.message : "Invalid amount." }, 400); }
-    const inputHash = await sha256(json({ chainId: selected.chainId, vaultId: selected.vaultId, kind: body.kind, amountRaw: amountRaw.toString(), wallet: current.wallet }));
+    const inputHash = await sha256(json({ chainId: selected.chainId, vaultId: selected.vaultId, kind: body.kind, amountRaw: amountRaw.toString(), wallet: current.wallet, approvalId: body.approvalId ?? null }));
     const existing = await c.env.DB!.prepare("SELECT action_json, input_hash FROM p2_actions WHERE wallet = ? AND idempotency_key = ?").bind(current.wallet, body.idempotencyKey).first<ActionRow>();
     if (existing) {
       const action = JSON.parse(existing.action_json) as PreparedAction;
@@ -238,7 +255,7 @@ export function createP1Api(getRegistry: () => Promise<RegistryResponse>, verify
       if (!dailyLimit || amountRaw + reserved > BigInt(dailyLimit)) return c.json({ error: `This amount would exceed the mandate's ${selected.assetSymbol} 24-hour limit for recorded actions.` }, 409);
     }
     try {
-      const action = await prepareP2Action({ vaultId: body.vaultId, kind: body.kind, amountRaw: amountRaw.toString(), wallet: current.wallet as `0x${string}`, mandate: mapMandate(active), env: c.env });
+      const action = await prepareP2Action({ vaultId: body.vaultId, kind: body.kind, amountRaw: amountRaw.toString(), wallet: current.wallet as `0x${string}`, mandate: mapMandate(active), env: c.env, approvedAction });
       await c.env.DB!.prepare("INSERT INTO p2_actions (id, wallet, mandate_id, idempotency_key, input_hash, action_json, state, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(action.id, current.wallet, active.id, body.idempotencyKey, inputHash, json(action), action.state, action.createdAt, action.createdAt).run();
       return c.json(action, 201);
     } catch (error) { return c.json({ error: error instanceof Error ? error.message : "The action could not be prepared." }, 409); }
@@ -258,6 +275,8 @@ export function createP1Api(getRegistry: () => Promise<RegistryResponse>, verify
     if (!found) return c.json({ error: "Action not found." }, 404);
     const { action } = found;
     if (action.state !== "preflight_ready" || isExpired(action)) return c.json({ error: "The review has expired or a wallet request is already in progress. Prepare a fresh review." }, 409);
+    const revision = await c.env.DB!.prepare("SELECT revision FROM p2_wallet_revision WHERE wallet = ?").bind(current.wallet).first<{ revision: number }>();
+    if (!revision) return c.json({ error: "Action storage needs migration before wallet review." }, 409);
     const active = await c.env.DB!.prepare("SELECT id, version, rules_json, created_at, supersedes_id FROM p1_mandates WHERE wallet = ? ORDER BY version DESC LIMIT 1").bind(current.wallet).first<MandateRow>();
     if (active?.id !== action.mandateId) return c.json({ error: "Your mandate changed. Prepare a fresh review." }, 409);
     try {
@@ -266,13 +285,32 @@ export function createP1Api(getRegistry: () => Promise<RegistryResponse>, verify
       if (action.chainId !== config.chainId || action.vault.toLowerCase() !== config.vault.toLowerCase() || action.asset.toLowerCase() !== config.asset.toLowerCase() || action.codeHash.toLowerCase() !== config.vaultCodeHash.toLowerCase()) throw new Error("The reviewed route changed.");
       const expectedTarget = action.step === "action" ? config.bundle : action.kind === "deposit" ? config.asset : config.vault;
       if (action.target.toLowerCase() !== expectedTarget.toLowerCase()) throw new Error("The reviewed transaction target changed.");
-      if (BigInt(action.gasLimitRaw) * await p2Client.getGasPrice() > BigInt(mapMandate(active!).rules.maxGasRaw)) throw new Error("The current gas price exceeds the mandate.");
+      if (action.kind === "deposit" && action.step === "action") {
+        const recent = await c.env.DB!.prepare("SELECT action_json FROM p2_actions WHERE wallet = ? AND created_at > ? AND state IN ('wallet_prompt', 'submitted', 'confirmed', 'unknown')").bind(current.wallet, new Date(Date.now() - 24 * 60 * 60_000).toISOString()).all<{ action_json: string }>();
+        const reserved = reservedDepositRaw(recent.results.map((row) => JSON.parse(row.action_json) as PreparedAction), config.asset);
+        const rules = mapMandate(active!).rules;
+        const limit = config.assetSymbol === "EURC" ? rules.maxEurcDailyRaw : rules.maxDailyRaw;
+        if (!limit || BigInt(action.amountRaw) + reserved > BigInt(limit)) return c.json({ error: "Your recorded deposits now exceed this review's daily budget. Prepare a fresh review." }, 409);
+      }
+      const gasPrice = await p2Client.getGasPrice();
+      if (gasPrice > BigInt(action.gasPriceRaw) || BigInt(action.gasLimitRaw) * gasPrice > BigInt(mapMandate(active!).rules.maxGasRaw)) throw new Error("The current gas price exceeds the review or mandate.");
       await verifyP2Adapter(config);
-      await p2Client.call({ account: action.wallet, to: action.target, data: action.calldata });
+      await p2Client.call({ account: action.wallet, to: action.target, data: action.calldata, value: 0n });
+      const requiredGas = await p2Client.estimateGas({ account: action.wallet, to: action.target, data: action.calldata, value: 0n });
+      if (requiredGas > BigInt(action.gasLimitRaw)) throw new Error("The reviewed gas limit is no longer sufficient.");
+      const nativeRequired = BigInt(action.gasLimitRaw) * BigInt(action.gasPriceRaw) + (action.kind === "deposit" && config.assetSymbol === "USDC" ? BigInt(action.amountRaw) * 10n ** 12n : 0n);
+      if (await p2Client.getBalance({ address: action.wallet }) < nativeRequired) throw new Error("The wallet balance changed.");
     } catch { return c.json({ error: "The adapter or simulation changed. Refresh the review." }, 409); }
+    if (isExpired(action)) return c.json({ error: "The review expired during verification. Prepare a fresh review." }, 409);
     const next: PreparedAction = { ...action, state: "wallet_prompt" };
-    const changed = await c.env.DB!.prepare("UPDATE p2_actions SET action_json = ?, state = ?, updated_at = ? WHERE id = ? AND wallet = ? AND state = 'preflight_ready'").bind(json(next), next.state, new Date().toISOString(), action.id, current.wallet).run();
-    return changed.meta.changes ? c.json(next) : c.json({ error: "Another wallet request is already in progress." }, 409);
+    const changed = await c.env.DB!.prepare(`UPDATE p2_actions SET action_json = ?, state = ?, updated_at = ?
+      WHERE id = ? AND wallet = ? AND state = 'preflight_ready'
+      AND (SELECT revision FROM p2_wallet_revision WHERE wallet = ?) = ?
+      AND (SELECT id FROM p1_mandates WHERE wallet = ? ORDER BY version DESC LIMIT 1) = ?
+      AND NOT EXISTS (SELECT 1 FROM p2_actions other WHERE other.wallet = ? AND other.id != ?
+        AND json_extract(other.action_json, '$.chainId') = 5042 AND other.state IN ('wallet_prompt', 'submitted', 'unknown'))`)
+      .bind(json(next), next.state, new Date().toISOString(), action.id, current.wallet, current.wallet, revision.revision, current.wallet, action.mandateId, current.wallet, action.id).run();
+    return changed.meta.changes ? c.json(next) : c.json({ error: "Wallet activity or your mandate changed during review. Refresh before continuing." }, 409);
   });
 
   app.post("/actions/:id/rejected", async (c) => {
@@ -320,7 +358,7 @@ export function createP1Api(getRegistry: () => Promise<RegistryResponse>, verify
     let notFound = false;
     try {
       const tx = await p2Client.getTransaction({ hash: action.txHash });
-      known = tx.from.toLowerCase() === action.wallet.toLowerCase() && tx.to?.toLowerCase() === action.target.toLowerCase() && tx.input.toLowerCase() === action.calldata.toLowerCase();
+      known = tx.from.toLowerCase() === action.wallet.toLowerCase() && tx.to?.toLowerCase() === action.target.toLowerCase() && tx.input.toLowerCase() === action.calldata.toLowerCase() && tx.value === 0n && tx.chainId === action.chainId && tx.nonce === action.txNonce;
       if (!known) return c.json({ error: "The recorded transaction no longer matches this action." }, 409);
       try { receipt = await p2Client.getTransactionReceipt({ hash: action.txHash }); } catch { /* Pending or provider unavailable. */ }
     } catch (cause) { notFound = cause instanceof Error && cause.name === "TransactionNotFoundError"; }
@@ -331,7 +369,10 @@ export function createP1Api(getRegistry: () => Promise<RegistryResponse>, verify
     }
     const state = receiptState(receipt, notFound && !replacementPossible, Date.now() - Date.parse(action.submittedAt ?? found.row.updated_at));
     const next: PreparedAction = { ...action, state, message: state === "reverted" ? "The transaction reverted on Arc Mainnet." : state === "dropped" ? "This transaction was not found after 30 minutes." : replacementPossible ? "The original hash is missing and the wallet nonce advanced. A replacement may have landed; track its new hash below." : state === "unknown" ? "Receipt pending or RPC unavailable. Check the explorer before retrying." : null };
-    if (next.state !== action.state) await c.env.DB!.prepare("UPDATE p2_actions SET action_json = ?, state = ?, updated_at = ? WHERE id = ? AND wallet = ?").bind(json(next), next.state, new Date().toISOString(), next.id, current.wallet).run();
+    if (next.state !== action.state) {
+      const changed = await c.env.DB!.prepare("UPDATE p2_actions SET action_json = ?, state = ?, updated_at = ? WHERE id = ? AND wallet = ? AND tx_hash = ? AND state = ?").bind(json(next), next.state, new Date().toISOString(), next.id, current.wallet, action.txHash, action.state).run();
+      if (!changed.meta.changes) return c.json((await actionFor(c, current.wallet, action.id))?.action ?? action);
+    }
     return c.json(next);
   });
 
@@ -353,7 +394,7 @@ export function createP1Api(getRegistry: () => Promise<RegistryResponse>, verify
     if (!current) return c.json({ error: "Wallet sign-in required." }, 401);
     const body = await c.req.json().catch(() => null) as { confirm?: unknown } | null;
     if (body?.confirm !== "DELETE") return c.json({ error: "Type DELETE to confirm account data removal." }, 400);
-    for (const table of ["p2_actions", "p1_reports", "p1_alerts", "p1_watchlist", "p1_mandates", "p1_sessions"] as const) {
+    for (const table of ["p2_actions", "p2_wallet_revision", "p1_reports", "p1_alerts", "p1_watchlist", "p1_mandates", "p1_sessions"] as const) {
       await c.env.DB!.prepare(`DELETE FROM ${table} WHERE wallet = ?`).bind(current.wallet).run();
     }
     await c.env.DB!.prepare("DELETE FROM p1_rate_limits WHERE key IN (?, ?)").bind(`preflight:${current.wallet}`, `watch:${current.wallet}`).run();

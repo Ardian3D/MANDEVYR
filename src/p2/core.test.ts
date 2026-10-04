@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canPrompt, isExpired, parsePositiveRaw, receiptState, reservedDepositRaw, type PreparedAction } from "./core";
+import { canPrompt, isExpired, parseAssetAmount, parsePositiveRaw, receiptState, reservedDepositRaw, type PreparedAction } from "./core";
 import { getP2Config, readExactApproval, verifyBundleCalldata } from "./adapter";
 import { encodeFunctionData, parseAbi, zeroAddress, zeroHash } from "viem";
 import type { ActionRequirement } from "@morpho-org/morpho-sdk";
@@ -11,6 +11,11 @@ const action = {
 } as unknown as PreparedAction;
 
 describe("P2 action gates", () => {
+  it("never rounds user amounts with excess decimals", () => {
+    expect(parseAssetAmount("1.000001")).toBe("1000001");
+    expect(parseAssetAmount("0.000001")).toBe("1");
+    for (const value of ["1.0000001", "0", "-1", "1e2", "01", "1.", "NaN"]) expect(() => parseAssetAmount(value)).toThrow();
+  });
   it("accepts integer base units without losing precision", () => {
     expect(parsePositiveRaw("100000000000000000000000000000000000")).toBe(100000000000000000000000000000000000n);
     for (const input of ["0", "-1", "1.5", "01", "1e3", "", 1]) expect(() => parsePositiveRaw(input)).toThrow();
@@ -22,6 +27,7 @@ describe("P2 action gates", () => {
     expect(isExpired(action, 61_000)).toBe(true);
     expect(canPrompt(action, action.wallet, 5042, 60_999)).toBe(true);
     expect(canPrompt(action, action.wallet, 5042002, 60_999)).toBe(false);
+    expect(canPrompt({ ...action, chainId: 5042002 } as unknown as PreparedAction, action.wallet, 5042, 60_999)).toBe(false);
     expect(canPrompt(action, "0x2222222222222222222222222222222222222222", 5042, 60_999)).toBe(false);
     expect(canPrompt({ ...action, state: "wallet_prompt" }, action.wallet, 5042, 60_999)).toBe(false);
   });
@@ -78,7 +84,8 @@ describe("P2 action gates", () => {
     const vault = getP2Config({}).vault;
     const deadline = 1_800_000_000n;
     const deposit = (fee: bigint) => encodeFunctionData({ abi: vaultBundlesV1Abi, functionName: "vaultBundlesV1Deposit", args: [vault, 1_000_000n, 1_000_000_000_000_000n, { kind: 0, data: "0x" }, fee, zeroAddress, deadline] });
-    expect(() => verifyBundleCalldata(deposit(0n), "deposit", vault, 1_000_000n, deadline)).not.toThrow();
+    expect(() => verifyBundleCalldata(deposit(0n), "deposit", vault, 1_000_000n, deadline, 1_000_000_000_000_000n)).not.toThrow();
+    expect(() => verifyBundleCalldata(deposit(0n), "deposit", vault, 1_000_000n, deadline, 2_000_000_000_000_000n)).toThrow();
     expect(() => verifyBundleCalldata(deposit(0n), "deposit", vault, 2_000_000n, deadline)).toThrow();
     expect(() => verifyBundleCalldata(deposit(0n), "deposit", "0x1111111111111111111111111111111111111111", 1_000_000n, deadline)).toThrow();
     expect(() => verifyBundleCalldata(deposit(1n), "deposit", vault, 1_000_000n, deadline)).toThrow();

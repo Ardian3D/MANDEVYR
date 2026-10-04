@@ -1,4 +1,4 @@
-import { morphoViemExtension, type ActionRequirement } from "@morpho-org/morpho-sdk";
+import { computeVaultMaxShareAllowance, computeVaultMaxSharePrice, morphoViemExtension, type ActionRequirement } from "@morpho-org/morpho-sdk";
 import { getChainAddresses } from "@morpho-org/morpho-sdk/addresses";
 import { vaultBundlesV1Abi, vaultV2Abi, vaultV2FactoryAbi } from "@morpho-org/morpho-sdk/abis";
 import { createPublicClient, decodeFunctionData, http, keccak256, parseAbi, zeroAddress, zeroHash, type Address, type Hex } from "viem";
@@ -77,18 +77,21 @@ export function getP2Config(env: P2Bindings, vaultId = "galaxy-usdc") {
 /** Bind the SDK route to the reviewed Arc contracts before preparing any wallet call. */
 export async function verifyP2Adapter(config: ReturnType<typeof getP2Config>) {
   if (addresses.bundles?.vaultBundlesV1?.toLowerCase() !== BUNDLE.toLowerCase() || addresses.vaultV2Factory?.toLowerCase() !== FACTORY.toLowerCase()) throw new Error("Morpho SDK Arc contract registry changed. Mainnet actions are paused.");
+  const block = await p2Client.getBlock();
+  const blockNumber = block.number;
+  if (Math.abs(Date.now() - Number(block.timestamp) * 1000) > 120_000) throw new Error("Arc Mainnet block evidence is stale. Refresh before preparing an action.");
   const [chainId, vaultCode, bundleCode, asset, registered, decimals, symbol, shareDecimals, deadShares, vaultImplementation, bundleImplementation] = await Promise.all([
     p2Client.getChainId(),
-    p2Client.getBytecode({ address: config.vault }),
-    p2Client.getBytecode({ address: config.bundle }),
-    p2Client.readContract({ address: config.vault, abi: vaultV2Abi, functionName: "asset" }),
-    p2Client.readContract({ address: FACTORY, abi: vaultV2FactoryAbi, functionName: "isVaultV2", args: [config.vault] }),
-    p2Client.readContract({ address: config.asset, abi: assetAbi, functionName: "decimals" }),
-    p2Client.readContract({ address: config.asset, abi: assetAbi, functionName: "symbol" }),
-    p2Client.readContract({ address: config.vault, abi: vaultV2Abi, functionName: "decimals" }),
-    p2Client.readContract({ address: config.vault, abi: vaultV2Abi, functionName: "balanceOf", args: [DEAD] }),
-    p2Client.getStorageAt({ address: config.vault, slot: IMPLEMENTATION_SLOT }),
-    p2Client.getStorageAt({ address: config.bundle, slot: IMPLEMENTATION_SLOT }),
+    p2Client.getBytecode({ address: config.vault, blockNumber }),
+    p2Client.getBytecode({ address: config.bundle, blockNumber }),
+    p2Client.readContract({ blockNumber, address: config.vault, abi: vaultV2Abi, functionName: "asset" }),
+    p2Client.readContract({ blockNumber, address: FACTORY, abi: vaultV2FactoryAbi, functionName: "isVaultV2", args: [config.vault] }),
+    p2Client.readContract({ blockNumber, address: config.asset, abi: assetAbi, functionName: "decimals" }),
+    p2Client.readContract({ blockNumber, address: config.asset, abi: assetAbi, functionName: "symbol" }),
+    p2Client.readContract({ blockNumber, address: config.vault, abi: vaultV2Abi, functionName: "decimals" }),
+    p2Client.readContract({ blockNumber, address: config.vault, abi: vaultV2Abi, functionName: "balanceOf", args: [DEAD] }),
+    p2Client.getStorageAt({ blockNumber, address: config.vault, slot: IMPLEMENTATION_SLOT }),
+    p2Client.getStorageAt({ blockNumber, address: config.bundle, slot: IMPLEMENTATION_SLOT }),
   ]);
   if (
     chainId !== P2_CHAIN_ID || !vaultCode || !bundleCode || !registered ||
@@ -99,7 +102,7 @@ export async function verifyP2Adapter(config: ReturnType<typeof getP2Config>) {
     deadShares < 10n ** 12n ||
     BigInt(vaultImplementation ?? "0x0") !== 0n || BigInt(bundleImplementation ?? "0x0") !== 0n
   ) throw new Error(`${config.vaultName}, Morpho bundle, or ${config.assetSymbol} identity changed. Mainnet actions are paused.`);
-  return { assetDecimals: decimals, shareDecimals };
+  return { assetDecimals: decimals, shareDecimals, blockNumber, observedAt: new Date(Number(block.timestamp) * 1000).toISOString() };
 }
 
 export function readExactApproval(requirements: readonly ActionRequirement[], expectedToken: Address, expectedSpender: Address): { amount: bigint; calldata: Hex } | null {
@@ -114,11 +117,11 @@ export function readExactApproval(requirements: readonly ActionRequirement[], ex
 }
 
 /** Fail closed if a future SDK version encodes different mainnet effects. */
-export function verifyBundleCalldata(data: Hex, kind: ActionKind, vault: Address, amount: bigint, deadline: bigint): void {
+export function verifyBundleCalldata(data: Hex, kind: ActionKind, vault: Address, amount: bigint, deadline: bigint, expectedMaxSharePrice?: bigint): void {
   const decoded = decodeFunctionData({ abi: vaultBundlesV1Abi, data });
   if (kind === "deposit" && decoded.functionName === "vaultBundlesV1Deposit") {
     const [targetVault, assets, maxSharePrice, permit, referralFee, feeRecipient, txDeadline] = decoded.args;
-    if (targetVault.toLowerCase() === vault.toLowerCase() && assets === amount && maxSharePrice > 0n && permit.kind === 0 && permit.data === "0x" && referralFee === 0n && feeRecipient === zeroAddress && txDeadline === deadline) return;
+    if (targetVault.toLowerCase() === vault.toLowerCase() && assets === amount && maxSharePrice > 0n && maxSharePrice === expectedMaxSharePrice && permit.kind === 0 && permit.data === "0x" && referralFee === 0n && feeRecipient === zeroAddress && txDeadline === deadline) return;
   }
   if (kind === "withdraw" && decoded.functionName === "vaultBundlesV1Withdraw") {
     const [targetVault, assets, shares, permit, referralFee, feeRecipient, txDeadline] = decoded.args;
@@ -127,7 +130,7 @@ export function verifyBundleCalldata(data: Hex, kind: ActionKind, vault: Address
   throw new Error("The Morpho bundle call differs from the reviewed vault action. Mainnet action paused.");
 }
 
-export async function prepareP2Action(input: { vaultId: string; kind: ActionKind; amountRaw: string; wallet: Address; mandate: Mandate; env: P2Bindings }): Promise<PreparedAction> {
+export async function prepareP2Action(input: { vaultId: string; kind: ActionKind; amountRaw: string; wallet: Address; mandate: Mandate; env: P2Bindings; approvedAction?: PreparedAction }): Promise<PreparedAction> {
   const config = getP2Config(input.env, input.vaultId);
   if (!config.writesEnabled) throw new Error("Arc Mainnet actions are paused in this environment.");
   const amount = parsePositiveRaw(input.amountRaw);
@@ -136,8 +139,7 @@ export async function prepareP2Action(input: { vaultId: string; kind: ActionKind
   const actionLimit = config.assetSymbol === "EURC" ? input.mandate.rules.maxEurcActionRaw : input.mandate.rules.maxActionRaw;
   if (input.kind === "deposit" && (!actionLimit || amount > BigInt(actionLimit))) throw new Error(`The amount exceeds your mandate's ${config.assetSymbol} per-action limit.`);
   if (input.kind === "deposit" && input.mandate.rules.requireAvailableWithdrawal) throw new Error("This mandate requires verified withdrawal capacity, which is unavailable before the first deposit.");
-  const { assetDecimals, shareDecimals } = await verifyP2Adapter(config);
-  const blockNumber = await p2Client.getBlockNumber();
+  const { assetDecimals, shareDecimals, blockNumber } = await verifyP2Adapter(config);
   const [gasPrice, assetBalance, sharesHeld, nativeBalance] = await Promise.all([
     p2Client.getGasPrice(),
     p2Client.readContract({ address: config.asset, abi: assetAbi, functionName: "balanceOf", args: [input.wallet], blockNumber }),
@@ -152,21 +154,32 @@ export async function prepareP2Action(input: { vaultId: string; kind: ActionKind
   if (!isDeposit && preview > sharesHeld) throw new Error(`This wallet has too few ${config.vaultName} shares for that withdrawal.`);
 
   const vault = morphoClient.morpho.vaultV2(config.vault, P2_CHAIN_ID);
-  const vaultData = await vault.getData();
-  const deadline = BigInt(Math.floor(Date.now() / 1000) + 120);
+  const previous = input.approvedAction;
+  if (previous && (previous.state !== "confirmed" || previous.step !== "approval" || previous.wallet.toLowerCase() !== input.wallet.toLowerCase() || previous.vaultId !== input.vaultId || previous.kind !== input.kind || previous.amountRaw !== amount.toString() || previous.mandateId !== input.mandate.id || !previous.routeBlockNumber || !previous.routeDeadline)) throw new Error("The approval does not match this action. Prepare a fresh review.");
+  const routeBlockNumber = previous ? BigInt(previous.routeBlockNumber!) : blockNumber;
+  const deadline = previous ? BigInt(previous.routeDeadline!) : BigInt(Math.floor(Date.now() / 1000) + 120);
+  if (deadline <= BigInt(Math.floor(Date.now() / 1000) + 10)) throw new Error("The approval's action window expired. Prepare a fresh review.");
+  // Keep the original SDK snapshot after approval so the exact share cap cannot drift into another approval.
+  const vaultData = await vault.getData({ blockNumber: routeBlockNumber });
+  const protection = { vaultData, deadline, assets: amount, slippageTolerance: TOLERANCE_WAD };
+  const maxSharePrice = isDeposit ? computeVaultMaxSharePrice(protection) : undefined;
+  const shareCap = isDeposit ? null : computeVaultMaxShareAllowance(protection);
   const action = isDeposit
     ? vault.deposit({ amount, userAddress: input.wallet, vaultData, slippageTolerance: TOLERANCE_WAD, deadline })
     : vault.withdraw({ amount, userAddress: input.wallet, vaultData, slippageTolerance: TOLERANCE_WAD, deadline });
   const requirements = await action.getRequirements();
   const approvalToken = isDeposit ? config.asset : config.vault;
   const approval = readExactApproval(requirements, approvalToken, config.bundle);
+  if (previous && approval) throw new Error("The approved allowance changed. Prepare a fresh review.");
   if (isDeposit && approval !== null && approval.amount !== amount) throw new Error(`The required ${config.assetSymbol} approval is not the exact deposit amount.`);
   if (!isDeposit && approval !== null && approval.amount < preview) throw new Error("The required vault-share approval is below the withdrawal preview.");
+  if (!isDeposit && approval !== null && approval.amount !== shareCap) throw new Error("The share approval differs from the reviewed 0.1% cap.");
   if (!isDeposit && approval !== null && approval.amount > sharesHeld) throw new Error(`This wallet has too few ${config.vaultName} shares for the protected withdrawal cap.`);
   const spenderAllowance = await p2Client.readContract({ address: approvalToken, abi: assetAbi, functionName: "allowance", args: [input.wallet, config.bundle], blockNumber });
+  if (!isDeposit && approval === null && spenderAllowance !== shareCap) throw new Error("The current share allowance no longer matches the protected withdrawal cap.");
   const bundleTx = action.buildTx();
   if (bundleTx.to.toLowerCase() !== config.bundle.toLowerCase() || bundleTx.value !== 0n) throw new Error("The Morpho transaction target changed. Mainnet action paused.");
-  verifyBundleCalldata(bundleTx.data, input.kind, config.vault, amount, deadline);
+  verifyBundleCalldata(bundleTx.data, input.kind, config.vault, amount, deadline, maxSharePrice);
   const step = approval === null ? "action" : "approval";
   const target = step === "approval" ? approvalToken : bundleTx.to;
   const calldata = approval?.calldata ?? bundleTx.data;
@@ -184,7 +197,7 @@ export async function prepareP2Action(input: { vaultId: string; kind: ActionKind
     minSharesRaw: null, previewLabel: isDeposit ? "estimated shares received" : "estimated shares to burn",
     allowanceRaw: spenderAllowance.toString(), approvalAmountRaw: approval?.amount.toString() ?? null,
     gasLimitRaw: gasLimit.toString(), gasPriceRaw: gasPrice.toString(), gasCostRaw: gasCost.toString(), gasUnit: "native USDC",
-    blockNumber: blockNumber.toString(), codeHash: config.vaultCodeHash, mandateId: input.mandate.id, mandateVersion: input.mandate.version,
+    blockNumber: blockNumber.toString(), routeBlockNumber: routeBlockNumber.toString(), routeDeadline: deadline.toString(), codeHash: config.vaultCodeHash, mandateId: input.mandate.id, mandateVersion: input.mandate.version,
     evidenceUrl: config.sourceUrl, createdAt: new Date(now).toISOString(), validUntil: new Date(Math.min(now + P2_QUOTE_TTL_MS, Number(deadline) * 1000)).toISOString(),
     state: "preflight_ready", step, txHash: null, txNonce: null, submittedAt: null, message: null,
   };
