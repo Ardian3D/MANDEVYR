@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { createPublicClient, http, isAddress, parseAbi } from "viem";
+import { createPublicClient, fallback, http, isAddress, parseAbi } from "viem";
 import { arc } from "viem/chains";
 import {
   ARC_RPC,
@@ -15,7 +15,12 @@ import { createP1Api, runWatchtower, type P1Database } from "../p1/api.ts";
 const app = new Hono<{ Bindings: { DB?: P1Database } }>();
 const client = createPublicClient({
   chain: arc,
-  transport: http(ARC_RPC, { timeout: 9_000, retryCount: 1, retryDelay: 200 }),
+  transport: fallback([
+    http("https://rpc.drpc.mainnet.arc.io", { timeout: 9_000, retryCount: 0 }),
+    http("https://rpc.blockdaemon.mainnet.arc.io", { timeout: 9_000, retryCount: 0 }),
+    http("https://rpc.quicknode.mainnet.arc.io", { timeout: 9_000, retryCount: 0 }),
+    http(ARC_RPC, { timeout: 9_000, retryCount: 0 }),
+  ]),
 });
 
 const vaultAbi = parseAbi([
@@ -95,6 +100,7 @@ async function registry(force = false): Promise<RegistryResponse> {
   const observedAt = new Date().toISOString();
   let items: VaultSnapshot[];
   try {
+    if (await client.getChainId() !== 5042) throw new Error("Arc Mainnet RPC returned another chain.");
     const block = await client.getBlock();
     const blockTimestamp = new Date(Number(block.timestamp) * 1000).toISOString();
     items = await Promise.all(VAULTS.map(async (def) => {

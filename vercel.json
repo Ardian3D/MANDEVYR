@@ -3,6 +3,7 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist/client",
   "rewrites": [
+    { "source": "/api/p1/:path*", "destination": "https://mandevyr-p1.thisaimlabs.workers.dev/api/p1/:path*" },
     { "source": "/api/registry/:id", "destination": "/api/registry-item?id=:id" },
     { "source": "/api/wallet/:address", "destination": "/api/wallet?address=:address" },
     { "source": "/docs", "destination": "/docs/index.html" },

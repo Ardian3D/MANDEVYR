@@ -1,5 +1,5 @@
 export const P2_CHAIN_ID = 5042;
-export const P2_RPC = "https://rpc.mainnet.arc.io";
+export const P2_RPC = "https://rpc.drpc.mainnet.arc.io";
 export const P2_EXPLORER = "https://explorer.arc.io";
 export const P2_USDC = "0x3600000000000000000000000000000000000000";
 export const P2_QUOTE_TTL_MS = 60_000;

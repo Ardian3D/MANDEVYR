@@ -237,7 +237,10 @@ export function createP1Api(getRegistry: () => Promise<RegistryResponse>, verify
       const value = { vaultId, chainId: 5042, ...observed, blockNumber: observed.blockNumber.toString() };
       evidenceCache.set(vaultId, { until: Date.now() + 15_000, value });
       return c.json(value);
-    } catch { return c.json({ error: "Fresh contract evidence is unavailable. Wallet review will check again." }, 503); }
+    } catch (error) {
+      console.error("P2 contract evidence check failed", error);
+      return c.json({ error: "Fresh contract evidence is unavailable. Wallet review will check again." }, 503);
+    }
   });
 
   app.post("/actions/prepare", async (c) => {

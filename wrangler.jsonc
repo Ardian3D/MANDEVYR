@@ -8,7 +8,7 @@
   "d1_databases": [{
     "binding": "DB",
     "database_name": "mandevyr-p1",
-    "database_id": "00000000-0000-0000-0000-000000000001"
+    "database_id": "2443f2bc-4e24-4d19-9d2c-bf89f3d7e936"
   }],
   "triggers": { "crons": ["*/15 * * * *"] },
   "assets": {

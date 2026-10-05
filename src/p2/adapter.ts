@@ -1,7 +1,7 @@
 import { computeVaultMaxShareAllowance, computeVaultMaxSharePrice, morphoViemExtension, type ActionRequirement } from "@morpho-org/morpho-sdk";
 import { getChainAddresses } from "@morpho-org/morpho-sdk/addresses";
 import { vaultBundlesV1Abi, vaultV2Abi, vaultV2FactoryAbi } from "@morpho-org/morpho-sdk/abis";
-import { createPublicClient, decodeFunctionData, http, keccak256, parseAbi, zeroAddress, zeroHash, type Address, type Hex } from "viem";
+import { createPublicClient, decodeFunctionData, fallback, http, keccak256, parseAbi, zeroAddress, zeroHash, type Address, type Hex } from "viem";
 import { arc } from "viem/chains";
 import type { Mandate } from "../p1/rules.ts";
 import { VAULTS } from "../p0/registry.ts";
@@ -20,7 +20,11 @@ const DEAD = "0x000000000000000000000000000000000000dEaD";
 const IMPLEMENTATION_SLOT = "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc";
 const TOLERANCE_WAD = 1_000_000_000_000_000n; // 0.1% share-price tolerance.
 
-export const p2Client = createPublicClient({ chain: arc, transport: http(P2_RPC, { timeout: 12_000, retryCount: 1 }) });
+export const p2Client = createPublicClient({ chain: arc, transport: fallback([
+  http(P2_RPC, { timeout: 12_000, retryCount: 0 }),
+  http("https://rpc.blockdaemon.mainnet.arc.io", { timeout: 12_000, retryCount: 0 }),
+  http("https://rpc.quicknode.mainnet.arc.io", { timeout: 12_000, retryCount: 0 }),
+]) });
 const morphoClient = p2Client.extend(morphoViemExtension({ supportSignature: false }));
 const assetAbi = parseAbi([
   "function decimals() view returns (uint8)",
