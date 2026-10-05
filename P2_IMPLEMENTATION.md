@@ -1,6 +1,6 @@
 # P2 Actions — Curated Morpho Vault V2 on Arc Mainnet
 
-Status 2026-10-04: `/app/actions` locally supports the three reviewed Morpho Vault V2 entries in the registry on Arc Mainnet (chain ID 5042): Galaxy USDC, Gauntlet USDC Prime, and Gauntlet EURC Prime. The temporary local Node API bridge may enable `P2_MAINNET_WRITES_ENABLED=true` for wallet review; `.dev.vars` keeps it false. No mainnet transaction has been signed or submitted by this project work. The code has **not been pushed or deployed**; the public site is unchanged. Production must keep the switch unset until the release gate below is complete.
+Status 2026-10-05: `/app/actions` locally supports the three reviewed Morpho Vault V2 entries in the registry on Arc Mainnet (chain ID 5042): Galaxy USDC, Gauntlet USDC Prime, and Gauntlet EURC Prime. The temporary local Node API bridge may enable `P2_MAINNET_WRITES_ENABLED=true` for wallet review; `.dev.vars` keeps it false. The Vercel version exposes a read-only Actions preview backed by the P0 Arc registry. It verifies contract presence and base asset for display, while the stronger P2 adapter checks and all wallet actions remain unavailable there. No mainnet transaction has been signed or submitted by this project work. Production must keep the write switch unset until the release gate below is complete.
 
 ## Pinned route
 
@@ -35,7 +35,7 @@ Old testnet action records remain in account export but are excluded from the ma
 - Apply all D1 migrations, including `migrations/0004_p2_wallet_revision.sql`, before using this version. This migration seeds existing wallets and adds revision triggers used to serialize wallet prompts.
 - The Worker defaults to `writesEnabled=false` unless `P2_MAINNET_WRITES_ENABLED` is exactly `true`. The earlier `P2_WRITES_ENABLED` and testnet address bindings have no effect.
 - Do not turn this on for a public deployment before independent contract/transaction-flow review, an extension-wallet review on desktop and mobile, explicit risk copy, monitoring and rollback readiness, and a deliberately funded small-value mainnet approval/deposit/withdraw round trip. No testnet fixture can prove the real Galaxy Vault V2 execution path.
-- The user's earlier instruction to **not publish** still applies. Pushing or deploying this local change requires a separate decision.
+- The public Vercel preview contains no transaction endpoint. Enabling funded mainnet actions still requires the release gate above.
 
 ## Verification performed
 

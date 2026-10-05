@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Activity, ArrowDownLeft, ArrowRight, ArrowUpRight, Check, CircleAlert, Clock3, ExternalLink, Layers3, LoaderCircle, LockKeyhole, RefreshCw, ShieldCheck, Wallet } from "lucide-react";
 import { formatUnits, toHex } from "viem";
-import { VAULTS } from "../p0/registry";
+import { VAULTS, type RegistryResponse } from "../p0/registry";
 import { VaultLogo } from "../p0/VaultLogo";
 import type { EthereumProvider } from "../p0/wallets";
 import type { Mandate } from "../p1/rules";
 import { canPrompt, formatP2Error, isExpired, parseAssetAmount, P2_CHAIN_ID, type ActionKind, type PreparedAction } from "./core";
 import "./p2.css";
 
-type Props = { wallet: `0x${string}` | null; walletChain: number | null; provider: EthereumProvider | null };
+type Props = { wallet: `0x${string}` | null; walletChain: number | null; provider: EthereumProvider | null; previewOnly?: boolean };
 type ActionVault = { id: string; name: string; vault: string; asset: string; assetSymbol: "USDC" | "EURC"; sourceUrl: string };
 type Config = { chainId: number; network: string; vaults: ActionVault[]; explorer: string; configured: boolean; writesEnabled: boolean };
 type Evidence = { vaultId: string; chainId: number; blockNumber: string; observedAt: string };
@@ -22,13 +22,24 @@ async function request<T>(path: string, method = "GET", body?: unknown): Promise
   return data;
 }
 
+async function previewRegistry(): Promise<RegistryResponse> {
+  const response = await fetch("/api/registry", { cache: "no-store" });
+  if (!response.ok) throw new Error("Arc registry unavailable.");
+  const registry = await response.json() as RegistryResponse;
+  if (registry.chainId !== P2_CHAIN_ID || !Array.isArray(registry.items) || registry.items.length !== VAULTS.length ||
+    VAULTS.some((vault) => !registry.items.some((item) => item.id === vault.id && item.address.toLowerCase() === vault.address.toLowerCase() && item.assetAddress.toLowerCase() === vault.assetAddress.toLowerCase()))) {
+    throw new Error("Arc registry does not match the reviewed vaults.");
+  }
+  return registry;
+}
+
 function short(value: string) { return `${value.slice(0, 8)}…${value.slice(-6)}`; }
 function money(raw: string, decimals = 6) { return formatUnits(BigInt(raw), decimals); }
 function statusText(state: PreparedAction["state"]) {
   return ({ draft: "Draft", preflight_ready: "Ready for wallet review", wallet_prompt: "Waiting for wallet", submitted: "Submitted to Arc", confirmed: "Confirmed on Arc", reverted: "Reverted on Arc", dropped: "Transaction not found", unknown: "Checking transaction" })[state];
 }
 
-export function P2Panel({ wallet, walletChain, provider }: Props) {
+export function P2Panel({ wallet, walletChain, provider, previewOnly = false }: Props) {
   const [config, setConfig] = useState<Config | null>(null);
   const [sessionWallet, setSessionWallet] = useState<string | null>(null);
   const [mandate, setMandate] = useState<Mandate | null>(null);
@@ -49,6 +60,15 @@ export function P2Panel({ wallet, walletChain, provider }: Props) {
   const signedIn = Boolean(wallet && sessionWallet?.toLowerCase() === wallet.toLowerCase());
 
   const refresh = useCallback(async () => {
+    if (previewOnly) {
+      try {
+        await previewRegistry();
+        setConfig({ chainId: P2_CHAIN_ID, network: "Arc Mainnet", vaults: VAULTS.map((vault) => ({ id: vault.id, name: vault.name, vault: vault.address, asset: vault.assetAddress, assetSymbol: vault.asset, sourceUrl: vault.sourceUrl })), explorer: "https://explorer.arc.io", configured: false, writesEnabled: false });
+        setConfigError(false);
+      } catch { setConfig(null); setConfigError(true); }
+      setSessionWallet(null); setMandate(null); setHistory([]); setAction(null);
+      return;
+    }
     try {
       const nextConfig = await request<Config>("/actions/config");
       if (nextConfig.chainId !== P2_CHAIN_ID || !Array.isArray(nextConfig.vaults) || nextConfig.vaults.length !== 3 || typeof nextConfig.writesEnabled !== "boolean") throw new Error("Mainnet configuration unavailable.");
@@ -64,7 +84,7 @@ export function P2Panel({ wallet, walletChain, provider }: Props) {
       setHistory(actions.items);
       setAction((previous) => previous ? actions.items.find((item) => item.id === previous.id) ?? actions.items[0] ?? null : actions.items[0] ?? null);
     } catch { setSessionWallet(null); setMandate(null); setHistory([]); setAction(null); }
-  }, [wallet]);
+  }, [wallet, previewOnly]);
 
   useEffect(() => { const timer = window.setTimeout(() => void refresh(), 0); return () => window.clearTimeout(timer); }, [refresh]);
   useEffect(() => {
@@ -74,28 +94,37 @@ export function P2Panel({ wallet, walletChain, provider }: Props) {
   useEffect(() => {
     if (!config) return;
     let cancelled = false;
-    const inspect = () => request<Evidence>(`/actions/evidence/${vaultId}`).then((next) => { if (!cancelled) { setEvidence(next); setEvidenceError(false); } }).catch(() => { if (!cancelled) { setEvidence(null); setEvidenceError(true); } });
+    const inspect = () => (previewOnly
+      ? previewRegistry().then((registry) => {
+          const vault = registry.items.find((item) => item.id === vaultId);
+          const blockTime = Date.parse(vault?.blockTimestamp ?? "");
+          if (!vault || vault.status !== "fresh" || !vault.codePresent || !vault.assetMatched || !vault.blockNumber || !Number.isFinite(blockTime) || Math.abs(Date.now() - blockTime) > 120_000) throw new Error("Fresh Arc evidence unavailable.");
+          return { vaultId, chainId: P2_CHAIN_ID, blockNumber: vault.blockNumber, observedAt: vault.blockTimestamp! };
+        })
+      : request<Evidence>(`/actions/evidence/${vaultId}`))
+      .then((next) => { if (!cancelled) { setEvidence(next); setEvidenceError(false); } })
+      .catch(() => { if (!cancelled) { setEvidence(null); setEvidenceError(true); } });
     void inspect();
     const timer = window.setInterval(() => void inspect(), 30_000);
     return () => { cancelled = true; window.clearInterval(timer); };
-  }, [config, vaultId]);
+  }, [config, vaultId, previewOnly]);
   useEffect(() => {
-    if (!action || !signedIn || !["submitted", "unknown"].includes(action.state)) return;
+    if (previewOnly || !action || !signedIn || !["submitted", "unknown"].includes(action.state)) return;
     const timer = window.setInterval(() => { void request<PreparedAction>(`/actions/${action.id}`).then((next) => { setAction(next); setHistory((items) => items.map((item) => item.id === next.id ? next : item)); }).catch(() => { /* Keep the last known state; provider may be temporarily unavailable. */ }); }, 4000);
     return () => window.clearInterval(timer);
-  }, [action, signedIn]);
+  }, [action, signedIn, previewOnly]);
   useEffect(() => {
-    if (!action || action.state !== "wallet_prompt") return;
+    if (previewOnly || !action || action.state !== "wallet_prompt") return;
     let saved: string | null = null;
     try { saved = localStorage.getItem(txKey(action.id)); } catch { /* Storage is optional. */ }
     if (!saved) return;
     const timer = window.setTimeout(() => setPendingHash(saved), 0);
     void request<PreparedAction>(`/actions/${action.id}/tx`, "POST", { hash: saved }).then((next) => setAction(next)).catch(() => { /* Retry recording from the visible action. */ });
     return () => window.clearTimeout(timer);
-  }, [action]);
+  }, [action, previewOnly]);
 
   const switchMainnet = async () => {
-    if (!provider) return;
+    if (previewOnly || !provider) return;
     setBusy(true); setError(null);
     try {
       await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: toHex(P2_CHAIN_ID) }] });
@@ -108,7 +137,7 @@ export function P2Panel({ wallet, walletChain, provider }: Props) {
   };
 
   const prepare = async (review?: PreparedAction) => {
-    if (!wallet || walletChain !== P2_CHAIN_ID || !signedIn) return;
+    if (previewOnly || !wallet || walletChain !== P2_CHAIN_ID || !signedIn) return;
     setBusy(true); setError(null); setPendingHash(null);
     try {
       const amountRaw = review?.amountRaw ?? parseAssetAmount(amount);
@@ -134,7 +163,7 @@ export function P2Panel({ wallet, walletChain, provider }: Props) {
   };
 
   const submit = async () => {
-    if (!action || !wallet || !provider || sending.current || !canPrompt(action, wallet, walletChain ?? 0)) return;
+    if (previewOnly || !action || !wallet || !provider || sending.current || !canPrompt(action, wallet, walletChain ?? 0)) return;
     sending.current = true; setBusy(true); setError(null); setPendingHash(null);
     let promptAccepted = false;
     let walletCallStarted = false;
@@ -160,7 +189,7 @@ export function P2Panel({ wallet, walletChain, provider }: Props) {
   };
 
   const trackReplacement = async () => {
-    if (!active || !/^0x[0-9a-fA-F]{64}$/.test(replacementHash)) return;
+    if (previewOnly || !active || !/^0x[0-9a-fA-F]{64}$/.test(replacementHash)) return;
     setBusy(true); setError(null);
     try {
       const next = await request<PreparedAction>(`/actions/${active.id}/tx`, "POST", { hash: replacementHash });
@@ -177,18 +206,18 @@ export function P2Panel({ wallet, walletChain, provider }: Props) {
   const limit = asset === "EURC" ? mandate?.rules.maxEurcActionRaw : mandate?.rules.maxActionRaw;
   const evidenceFresh = evidence?.vaultId === vaultId && now - Date.parse(evidence.observedAt) < 120_000;
   const secondsLeft = active ? Math.max(0, Math.ceil((Date.parse(active.validUntil) - now) / 1000)) : 0;
-  const paused = !config?.writesEnabled;
+  const paused = previewOnly || !config?.writesEnabled;
   const depositDisabled = kind === "deposit" && asset === "EURC" && (!limit || BigInt(limit) === 0n);
   const updateAction = (next: PreparedAction) => { setAction(next); setHistory((items) => items.map((item) => item.id === next.id ? next : item)); };
 
   return <div className="p2-page">
     <header className="p2-heading">
-      <div><span className="p2-kicker"><span /> MORPHO ON ARC</span><h1>Your capital.<br /><em>Your call.</em></h1><p>A considered move starts here. Choose a vault, review the details, and confirm with your wallet.</p></div>
+      <div><span className="p2-kicker"><span /> MORPHO ON ARC</span><h1>Your capital.<br /><em>Your call.</em></h1><p>{previewOnly ? "Explore three curated vaults and inspect live Arc Mainnet contract evidence. Wallet actions are paused in this preview." : "A considered move starts here. Choose a vault, review the details, and confirm with your wallet."}</p></div>
       <div className="p2-network-card"><div className="p2-orbit" aria-hidden="true"><i /><i /><span><Layers3 size={25} strokeWidth={1.2} /></span></div><div><span>ONE NETWORK. EVERY VAULT.</span><strong>Arc Mainnet <ArrowUpRight size={16} /></strong><small>USDC & EURC · Morpho Vault V2</small></div></div>
     </header>
 
     {error && <div className="p2-alert" role="alert"><CircleAlert size={18} /><span>{error}</span><button type="button" onClick={() => setError(null)}>Dismiss</button></div>}
-    {configError && <div className="p2-alert" role="alert"><CircleAlert size={18} /><span>Action services are unavailable. Your wallet has not been prompted.</span><button type="button" onClick={() => void refresh()}>Retry</button></div>}
+    {configError && <div className="p2-alert" role="alert"><CircleAlert size={18} /><span>{previewOnly ? "Arc registry is unavailable. Contract evidence cannot be shown." : "Action services are unavailable. Your wallet has not been prompted."}</span><button type="button" onClick={() => void refresh()}>Retry</button></div>}
     <section className="p2-vaults" aria-label="Choose a vault">
       <div className="p2-section-heading"><span>01 / SELECT YOUR VAULT</span><span>3 curated routes <Layers3 size={13} /></span></div>
       <div className="p2-vault-grid">{VAULTS.map((vault, index) => <button type="button" key={vault.id} className={`p2-vault-card ${vaultId === vault.id ? "is-selected" : ""}`} aria-pressed={vaultId === vault.id} onClick={() => { setVaultId(vault.id); setEvidenceError(false); }} style={{ animationDelay: `${index * 65}ms` }}>
@@ -203,16 +232,16 @@ export function P2Panel({ wallet, walletChain, provider }: Props) {
         <div className="p2-tabs" role="group" aria-label="Action type"><button type="button" aria-pressed={kind === "deposit"} className={kind === "deposit" ? "active" : ""} onClick={() => setKind("deposit")}><ArrowDownLeft size={16} />Deposit</button><button type="button" aria-pressed={kind === "withdraw"} className={kind === "withdraw" ? "active" : ""} onClick={() => setKind("withdraw")}><ArrowUpRight size={16} />Withdraw</button></div>
         <div className="p2-amount-box"><label htmlFor="p2-amount">{kind === "deposit" ? "You deposit" : "You withdraw"}</label><div className="p2-amount-line"><input id="p2-amount" inputMode="decimal" autoComplete="off" value={amount} onChange={(event) => setAmount(event.target.value)} aria-label={`${asset} amount`} /><span><img src={`/brand/vaults/${asset.toLowerCase()}.svg`} alt="" />{asset}</span></div><div className="p2-amount-bottom"><span>Amount in {asset}</span><div>{["10", "50", "100"].map((value) => <button type="button" key={value} onClick={() => setAmount(value)}>{value}</button>)}</div></div></div>
         <div className="p2-destination"><div><span className="p2-destination-line" aria-hidden="true" /><span>{kind === "deposit" ? "To vault" : "From vault"}</span></div><strong>{selectedVault?.name ?? definition?.name}</strong></div>
-        <div className="p2-facts"><div><span>Per-action deposit limit</span><strong>{mandate ? `${money(limit ?? "0")} ${asset}` : "Set in your mandate"}</strong></div><div><span>Network fees paid in</span><strong><img src="/brand/vaults/usdc.svg" alt="" /> USDC</strong></div><div><span>Wallet approval</span><strong>Always yours <LockKeyhole size={12} /></strong></div></div>
-        {paused ? <div className="p2-inline-note"><LockKeyhole size={15} /><span>{config ? "Wallet actions are paused in this environment. You can still inspect each vault." : configError ? "Reconnect to action services to prepare a review." : "Loading action services…"}</span></div> : !signedIn ? <div className="p2-inline-note"><Wallet size={16} /><span>Sign in to apply your mandate and prepare a wallet review.</span></div> : !mandate ? <div className="p2-inline-note"><LockKeyhole size={15} /><span>Create a mandate to set your deposit and gas limits.</span></div> : depositDisabled ? <div className="p2-inline-note"><CircleAlert size={15} /><span>Set EURC deposit limits in your <a href="/app/mandate">mandate</a> before continuing.</span></div> : null}
+        <div className="p2-facts"><div><span>Per-action deposit limit</span><strong>{mandate ? `${money(limit ?? "0")} ${asset}` : previewOnly ? "Unavailable in preview" : "Set in your mandate"}</strong></div><div><span>Network fees paid in</span><strong><img src="/brand/vaults/usdc.svg" alt="" /> USDC</strong></div><div><span>Wallet approval</span><strong>Always yours <LockKeyhole size={12} /></strong></div></div>
+        {paused ? <div className="p2-inline-note"><LockKeyhole size={15} /><span>{previewOnly ? "Preview only. No approval, deposit, or withdrawal can be sent here." : config ? "Wallet actions are paused in this environment. You can still inspect each vault." : configError ? "Reconnect to action services to prepare a review." : "Loading action services…"}</span></div> : !signedIn ? <div className="p2-inline-note"><Wallet size={16} /><span>Sign in to apply your mandate and prepare a wallet review.</span></div> : !mandate ? <div className="p2-inline-note"><LockKeyhole size={15} /><span>Create a mandate to set your deposit and gas limits.</span></div> : depositDisabled ? <div className="p2-inline-note"><CircleAlert size={15} /><span>Set EURC deposit limits in your <a href="/app/mandate">mandate</a> before continuing.</span></div> : null}
         {!paused && signedIn && walletChain !== P2_CHAIN_ID && <div className="p2-inline-note"><CircleAlert size={15} /><span>Your wallet needs Arc Mainnet.</span><button type="button" onClick={() => void switchMainnet()} disabled={!provider || busy}>Switch network <ArrowRight size={14} /></button></div>}
         {!paused && (!signedIn || !mandate) ? <a className="p2-primary" href="/app/mandate"><Wallet size={17} />{signedIn ? "Create your mandate" : "Sign in to continue"}<ArrowRight size={17} /></a> : <button type="button" className="p2-primary" disabled={paused || !selectedVault || !signedIn || !mandate || walletChain !== P2_CHAIN_ID || busy || !amount || depositDisabled} onClick={() => void prepare()}>{busy ? <LoaderCircle size={17} className="spin" /> : <ShieldCheck size={17} />}{paused ? "Wallet actions paused" : "Prepare my review"}<ArrowRight size={17} /></button>}
-        <p className="p2-button-note">Preparing a review never sends funds.</p>
+        <p className="p2-button-note">{previewOnly ? "This preview never sends funds." : "Preparing a review never sends funds."}</p>
       </section>
 
       <aside className="p2-rail">
         <section className="p2-evidence-card"><div className="p2-evidence-top"><span className="p2-eyebrow">03 / VERIFY</span><ShieldCheck size={19} /></div><h2>A closer look.<br /><em>Before you commit.</em></h2>
-          <div className={`p2-evidence-status ${evidenceFresh ? "is-matched" : ""}`}><span>{evidenceFresh ? <Check size={15} /> : evidenceError || configError ? <CircleAlert size={15} /> : <LoaderCircle size={15} className="spin" />}</span><div><strong>{evidenceFresh ? "Contract identity matched" : evidenceError || configError ? "Evidence unavailable" : "Checking mainnet contracts"}</strong><small>{evidenceFresh ? `Arc block ${Number(evidence.blockNumber).toLocaleString("en-US")}` : "A fresh check runs before wallet review."}</small></div></div>
+          <div className={`p2-evidence-status ${evidenceFresh ? "is-matched" : ""}`}><span>{evidenceFresh ? <Check size={15} /> : evidenceError || configError ? <CircleAlert size={15} /> : <LoaderCircle size={15} className="spin" />}</span><div><strong>{evidenceFresh ? previewOnly ? "Contract and asset matched" : "Contract identity matched" : evidenceError || configError ? "Evidence unavailable" : "Checking mainnet contracts"}</strong><small>{evidenceFresh ? `Arc block ${Number(evidence.blockNumber).toLocaleString("en-US")}` : previewOnly ? "Live Arc evidence is temporarily unavailable." : "A fresh check runs before wallet review."}</small></div></div>
           <dl><div><dt>Network</dt><dd>Arc Mainnet <span>5042</span></dd></div><div><dt>Vault</dt><dd><a href={`https://explorer.arc.io/address/${definition?.address}`} target="_blank" rel="noreferrer">{definition ? short(definition.address) : "—"}<ExternalLink size={12} /></a></dd></div><div><dt>Underlying asset</dt><dd>{asset} <img src={`/brand/vaults/${asset.toLowerCase()}.svg`} alt="" /></dd></div></dl>
           <a className="p2-provider-link" href={definition?.sourceUrl} target="_blank" rel="noreferrer">Explore this vault on Morpho <ArrowUpRight size={15} /></a><p>Identity checks do not assess strategy or guarantee withdrawal liquidity. Review the vault’s risks and terms.</p>
         </section>
@@ -231,7 +260,7 @@ export function P2Panel({ wallet, walletChain, provider }: Props) {
       {active.state === "confirmed" && active.step === "approval" && <button className="p2-primary" type="button" disabled={paused || busy || !signedIn} onClick={() => void prepare(active)}><Check size={17} />Prepare {active.kind}<ArrowRight size={17} /></button>}
     </section>}
     {active && ["wallet_prompt", "submitted", "unknown", "dropped"].includes(active.state) && <details className="p2-replacement"><summary>Track a transaction from your wallet</summary><p>Paste the Arc Mainnet hash if a transaction was sent or replaced. Its wallet, call, chain, and replacement nonce must match the review.</p><form onSubmit={(event) => { event.preventDefault(); void trackReplacement(); }}><input aria-label="Replacement transaction hash" placeholder="0x… transaction hash" value={replacementHash} onChange={(event) => setReplacementHash(event.target.value.trim())} /><button type="submit" disabled={busy || !/^0x[0-9a-fA-F]{64}$/.test(replacementHash)}>Track hash <ArrowRight size={14} /></button></form></details>}
-    <section className="p2-history"><div className="p2-section-heading"><h2>Your activity</h2><span><Activity size={13} /> ONCHAIN RECEIPTS</span></div>{history.length ? <div className="p2-history-list">{history.slice(0, 8).map((item) => <button key={item.id} type="button" className={active?.id === item.id ? "is-selected" : ""} onClick={() => setAction(item)}><span className="p2-history-icon">{item.step === "approval" ? <LockKeyhole size={17} /> : item.kind === "deposit" ? <ArrowDownLeft size={18} /> : <ArrowUpRight size={18} />}</span><span><strong>{item.vaultName ?? "Galaxy USDC"}</strong><small>{item.step === "approval" ? "Token approval" : item.kind === "deposit" ? "Deposit" : "Withdrawal"}</small></span><span className="p2-history-value">{money(item.amountRaw, item.assetDecimals)} {item.assetSymbol ?? "USDC"}<small>{statusText(item.state)}</small></span><ArrowRight size={15} /></button>)}</div> : <div className="p2-empty"><span><Activity size={24} strokeWidth={1.3} /></span><div><h3>A clear record of every move.</h3><p>{signedIn ? "Your reviews and transaction receipts will appear here." : "Sign in to see your reviews and transaction receipts."}</p></div><span className="p2-empty-dots" aria-hidden="true"><i /><i /><i /></span></div>}</section>
+    <section className="p2-history"><div className="p2-section-heading"><h2>Your activity</h2><span><Activity size={13} /> ONCHAIN RECEIPTS</span></div>{history.length ? <div className="p2-history-list">{history.slice(0, 8).map((item) => <button key={item.id} type="button" className={active?.id === item.id ? "is-selected" : ""} onClick={() => setAction(item)}><span className="p2-history-icon">{item.step === "approval" ? <LockKeyhole size={17} /> : item.kind === "deposit" ? <ArrowDownLeft size={18} /> : <ArrowUpRight size={18} />}</span><span><strong>{item.vaultName ?? "Galaxy USDC"}</strong><small>{item.step === "approval" ? "Token approval" : item.kind === "deposit" ? "Deposit" : "Withdrawal"}</small></span><span className="p2-history-value">{money(item.amountRaw, item.assetDecimals)} {item.assetSymbol ?? "USDC"}<small>{statusText(item.state)}</small></span><ArrowRight size={15} /></button>)}</div> : <div className="p2-empty"><span><Activity size={24} strokeWidth={1.3} /></span><div><h3>A clear record of every move.</h3><p>{previewOnly ? "Wallet actions and transaction history are unavailable in this preview." : signedIn ? "Your reviews and transaction receipts will appear here." : "Sign in to see your reviews and transaction receipts."}</p></div><span className="p2-empty-dots" aria-hidden="true"><i /><i /><i /></span></div>}</section>
     <footer className="p2-footer"><span><LockKeyhole size={12} />Every transaction needs your wallet confirmation.</span><a href="/docs">Read the methodology <ArrowUpRight size={12} /></a></footer>
   </div>;
 }
