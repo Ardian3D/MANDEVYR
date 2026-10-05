@@ -46,15 +46,15 @@ The P0 wallet route accepts a public address and forwards read requests to Arc R
 
 The selected wallet preference is stored in this browser. On another app tab, the workspace uses `eth_accounts` to restore an already approved connection without opening the wallet prompt. Disconnect clears MANDEVYR's local selection; it does not revoke the extension's site permission.
 
-## P1 local preview
+## P1 and P2 on Arc Mainnet
 
-P1 is available in Vite development at `/app/mandate`, `/app/preflight/new`, `/app/history`, and `/app/watch`. It adds wallet sign-in via SIWE, versioned mandates, immutable research preflights, private report history, a synced watchlist, and an in-app Watchtower inbox. The Worker checks watched vaults every 15 minutes and alerts only when source availability changes. It does not monitor APY, prove withdrawal liquidity, or make transactions.
+P1 is available locally and publicly at `/app/mandate`, `/app/preflight/new`, `/app/history`, and `/app/watch`. It adds wallet sign-in via SIWE, versioned mandates, immutable research preflights, private report history, a synced watchlist, and an in-app Watchtower inbox. The Worker checks watched vaults every 15 minutes and alerts only when source availability changes. It does not monitor APY or prove withdrawal liquidity.
 
-P2 is implemented locally at `/app/actions` for the three curated Arc Mainnet Morpho Vault V2 vaults: Galaxy USDC, Gauntlet USDC Prime, and Gauntlet EURC Prime. Wallet actions require the separate `P2_MAINNET_WRITES_ENABLED=true` runtime switch, an active mandate, and explicit wallet confirmation. EURC deposits also require separate EURC action and daily caps saved in a new mandate. The public Vercel route shows a read-only Actions preview backed by the existing live Arc registry; approval, deposit, withdrawal, mandates, and private history are unavailable there. Funded mainnet approval/deposit/withdraw transactions have not been verified. See [P2_IMPLEMENTATION.md](./P2_IMPLEMENTATION.md).
+P2 is available at `/app/actions` for the three curated Arc Mainnet Morpho Vault V2 vaults: Galaxy USDC, Gauntlet USDC Prime, and Gauntlet EURC Prime. The production Worker currently has `P2_MAINNET_WRITES_ENABLED=true`; wallet actions still require an active mandate and explicit wallet confirmation. EURC deposits also require separate EURC action and daily caps saved in a new mandate. Funded mainnet approval/deposit/withdraw transactions have **not** been verified. See [P2_IMPLEMENTATION.md](./P2_IMPLEMENTATION.md).
 
 Apply all D1 migrations through `0004_p2_wallet_revision.sql` for the latest prompt concurrency checks. The Actions UI includes live contract evidence and responsive vault selection. Run `node --experimental-strip-types scripts/verify-p2-mainnet.mjs` for read-only identity, SDK route, and approval-call checks; the latest result is in [docs/p2-mainnet-verification.json](./docs/p2-mainnet-verification.json). This check never signs or broadcasts a transaction.
 
-The local Cloudflare D1 database is configured with a placeholder ID that is valid only for local development. Apply its migration before using P1:
+The local Cloudflare D1 data is separate from production. Apply its migrations before using P1 locally:
 
 ```bash
 npx wrangler d1 migrations apply mandevyr-p1 --local
@@ -64,7 +64,7 @@ node scripts/smoke-p1.mjs
 
 The smoke script creates random test wallets and checks nonce replay, origin checking, wallet-scoped reports, idempotency, mandates, the watchlist, scoped data export, and account deletion. Use `npx wrangler dev --test-scheduled` to invoke the cron handler locally; cron is not active merely because Vite is open.
 
-Production builds hide P1 routes unless `VITE_P1_ENABLED=true` is set at build time. The independent `/app/actions` route remains visible as a read-only preview and uses the P0 registry for contract and asset evidence. Before enabling P1, create a real Cloudflare D1 database, replace the placeholder ID in `wrangler.jsonc`, apply migrations remotely, deploy the Worker with its scheduled trigger, and verify the full SIWE and cron flow. The current Vercel functions have no D1 binding, so they support P0 and the Actions preview only. Do not present P1 as a public feature on Vercel until a production database adapter is configured and tested. P1 remains read-only research; its preflight verdict is never action permission.
+Production builds show the P1/P2 routes by default; `VITE_P1_ENABLED=false` is an emergency frontend rollback. Vercel serves the frontend and P0 API, and `vercel.json` proxies `/api/p1/*` to the Cloudflare Worker. The Worker has production D1 with migrations `0001`–`0004` and a 15-minute Watchtower cron. SIWE and P2 smoke tests passed through the Vercel and canonical domains. P1 preflight remains research; its verdict is never action permission. Set the Cloudflare `P2_MAINNET_WRITES_ENABLED` secret to `false` to pause P2 wallet transactions without removing P1.
 
 ## Landing and documentation
 
@@ -76,7 +76,7 @@ The supplied MANDEVYR logos remain in `public/`; the official Arc dark-backgroun
 
 The canonical public URL is `https://www.mandevyr.my.id/`. `vercel.json` sets Vercel's output directory to `dist/client` and makes direct visits to `/docs` and `/app/*` load their React routes. `npm run build` also generates route-specific HTML for `/docs` and `/app`, including metadata and crawlable text for the docs. The app route is excluded from search results while it depends on live wallet and RPC state. `public/robots.txt` and `public/sitemap.xml` announce the landing page and docs. The social preview image is `public/og-mandevyr.png`.
 
-After deployment, check that `/`, `/docs`, `/app`, `/robots.txt`, `/sitemap.xml`, and `/og-mandevyr.png` return HTTP 200 and that `/docs` has its own title and canonical URL. The `api/` Vercel functions use a P0-only bundle of the Hono registry because Vercel functions do not receive the separate Worker source file at runtime. Rebuild that bundle when the P0 registry changes. Verify that `/api/health` returns JSON with `status: "ok"` before presenting the Arc workspace as live. If the deployed API reports `degraded`, investigate the Arc RPC or vault checks before advertising live data.
+After deployment, check that `/`, `/docs`, `/app`, `/robots.txt`, `/sitemap.xml`, and `/og-mandevyr.png` return HTTP 200 and that `/docs` has its own title and canonical URL. The `api/` Vercel functions use a P0-only bundle of the Hono registry because Vercel functions do not receive the separate Worker source file at runtime. Rebuild that bundle when the P0 registry changes. Verify `/api/health` and `/api/p1/health`; if either reports `degraded`, investigate the Arc RPC, D1, or vault checks before advertising live data.
 
 For Google discovery, add the **Domain property** `mandevyr.my.id` to [Google Search Console](https://search.google.com/search-console/), verify ownership with the DNS TXT record Google gives you, submit `https://www.mandevyr.my.id/sitemap.xml`, and use URL Inspection to request indexing of the home page and docs. Verification and requests require the domain owner's Google account. Google decides when and whether to index a page and how to display the title and snippet; these files do not guarantee immediate placement.
 
