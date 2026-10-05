@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<!-- MANDEVYR Actions. Adapted from Bang Motion's starter-opener architecture (MIT), Bang Tutorial. -->
+<!-- Approved concept: UI journey; five connected beats; matte brand surfaces; moving illumination; original product artwork. -->
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MANDEVYR — A move on your terms</title>
+<style>
+@font-face{font-family:Manrope;src:url('assets/manrope.woff2') format('woff2');font-weight:200 800;font-display:block}
+:root{--mint:#cce8b5;--base:#0a100a;--ink:#e2ebdb;--muted:#8fa18f}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0a100a;color:var(--ink);font-family:Manrope,sans-serif}
+#stage{position:fixed;left:50%;top:50%;width:1920px;height:1080px;overflow:hidden;transform:translate(-50%,-50%);background:var(--base);perspective:1800px}
+#surface{position:absolute;inset:-400px;background:radial-gradient(ellipse at 80% 90%,#3e55363d,transparent 45%),linear-gradient(145deg,#0a100a 35%,#182416);}
+#light{position:absolute;width:1400px;height:1200px;left:900px;top:-400px;background:radial-gradient(ellipse,#a3c78824,transparent 62%);border-radius:50%}
+#paper{position:absolute;inset:0;background:radial-gradient(ellipse at 70% 20%,#f5f8ee,#e2ebdb 65%,#cce8b5);clip-path:circle(0% at 78% 53%)}
+#grain{position:absolute;inset:-64px;opacity:.048;pointer-events:none;mix-blend-mode:screen;z-index:15;background-size:160px 160px}
+#world{position:absolute;inset:0;transform-origin:0 0;will-change:transform}
+.orbit{position:absolute;border:1px solid #bcd6a522;border-radius:50%;width:1050px;height:1050px;left:925px;top:100px;transform:rotateX(55deg) rotateY(-25deg);pointer-events:none}
+.orbit.two{width:900px;height:900px;left:1010px;top:180px;border-color:#bcd6a511}
+#intro{position:absolute;left:140px;top:302px;z-index:4;line-height:1.02;font-weight:450;letter-spacing:-8px;font-size:138px}
+#intro .line{display:block;overflow:visible}em{font-family:Georgia,'Times New Roman',serif;font-weight:400;letter-spacing:-.06em}#intro em{color:var(--mint)}
+.word{display:inline-block;will-change:transform;opacity:0}
+#intro-brand{position:absolute;left:145px;top:126px;font-size:29px;letter-spacing:1px;font-weight:650;display:flex;align-items:center;gap:16px}
+#intro-brand img{width:55px;height:55px;object-fit:contain;background:#dceccf;border-radius:50%;padding:7px}
+#product{position:absolute;left:0;top:0;width:1500px;height:1020px;border-radius:30px;border:1px solid #bacfa946;background:#0a100a;box-shadow:0 70px 150px #0009,0 1px 0 #cce8b529 inset;transform-origin:0 0;overflow:visible;transform-style:preserve-3d}
+.chrome{height:64px;border-bottom:1px solid #b2c8a527;display:flex;align-items:center;padding:0 28px;gap:10px;font-size:17px;color:#83917c;border-radius:30px 30px 0 0;background:#11180f}
+.chrome i{width:10px;height:10px;border-radius:50%;background:#53634b}.chrome b{margin:0 auto;font-weight:450;letter-spacing:1px}.chrome span{color:#b9cbaa}
+.sidebar{position:absolute;left:0;top:64px;bottom:0;width:200px;border-right:1px solid #b2c8a527;padding:29px 18px;color:#93a28a;font-size:19px}
+.brand{display:flex;align-items:center;gap:10px;color:#eef3e8;font-size:18px;font-weight:700;margin:0 0 56px}.brand img{width:38px;height:38px;object-fit:contain;background:#dceccf;border-radius:50%;padding:5px}.nav{margin:0 0 12px;padding:17px 14px;border:1px solid transparent;white-space:nowrap}.nav.active{border-color:#cce8b533;background:#cce8b50a;color:#dbeace;border-radius:5px}.nav b{font-weight:450;margin-left:13px}.sidebar-foot{position:absolute;bottom:35px;left:25px;font-size:15px;color:#aec39e}
+.topbar{position:absolute;left:237px;right:34px;top:95px;display:flex;align-items:center;justify-content:space-between;font-size:17px;color:#b7c7ab}.net{display:flex;gap:10px;align-items:center}.dot{width:7px;height:7px;border-radius:50%;background:#cce8b5;box-shadow:0 0 20px #cce8b55a}.wallet{border:1px solid #96aa864f;border-radius:6px;padding:12px 20px;color:#dbe9ce;font-size:16px}
+.ui-title{position:absolute;left:240px;top:166px;font-size:58px;font-weight:450;letter-spacing:-3px;margin:0}.ui-title em{color:var(--mint)}
+.vaults{position:absolute;top:272px;left:240px;right:36px;display:flex;gap:17px}.vault{position:relative;flex:1;height:176px;padding:24px 24px 16px;border:1px solid #b8d2a42b;border-radius:20px;background:#10170e;transform-origin:center}.vault.selected{border-color:#cce8b593;background:radial-gradient(ellipse at 80% 0,#9abd7f22,transparent),#172014}.vault img.logo{height:38px;width:38px;object-fit:contain;display:block;border-radius:50%;margin-bottom:11px}.vault img.token{position:absolute;left:49px;top:49px;width:20px;height:20px;border:2px solid #182113;border-radius:50%}.vault strong{display:block;font-size:23px;font-weight:550;letter-spacing:-.6px}.vault small{display:block;font-size:14px;color:#829679;margin-top:6px}.vault .check{position:absolute;right:24px;top:27px;width:25px;height:25px;display:grid;place-items:center;border:1px solid #cce8b533;border-radius:50%;font-size:15px;color:#8b9d7c}.vault.selected .check{background:var(--mint);color:#22311a}.vault .asset-tag{position:absolute;right:23px;bottom:21px;font-size:14px;color:#c1d1b5}
+.compose{position:absolute;left:240px;top:479px;width:687px;height:500px;padding:28px;border:1px solid #cce8b52d;border-radius:24px;background:#10180e;box-shadow:0 20px 50px #0002}.panel-title{display:flex;align-items:center;justify-content:space-between;font-size:23px;font-weight:550;letter-spacing:-.7px;margin-bottom:20px}.panel-title span{font-size:13px;letter-spacing:0;color:#a7bd98}
+.tabs{position:relative;display:flex;border:1px solid #cce8b52b;border-radius:10px;padding:5px;background:#0a1009;height:52px;margin-bottom:19px}.tab{width:50%;display:grid;place-items:center;font-size:18px;z-index:1;color:#829975}.tab-bg{position:absolute;left:5px;top:5px;width:calc(50% - 5px);height:40px;background:#283721;border:1px solid #acc99140;border-radius:6px}.tab.active{color:#def0cc}
+.amount{border:1px solid #cce8b53c;border-radius:16px;padding:20px;background:#0c130a}.amount-label{font-size:15px;color:#a2b696}.amount-main{display:flex;justify-content:space-between;align-items:center;height:90px}.number{font-size:75px;letter-spacing:-4px;line-height:1;font-variant-numeric:tabular-nums;font-weight:450}.unit{display:flex;align-items:center;gap:9px;font-size:23px;color:#dce9d1}.unit img{width:30px;height:30px}.presets{display:flex;gap:8px;justify-content:flex-end;margin-top:2px}.presets span{border:1px solid #b9d5a72a;border-radius:5px;padding:4px 10px;font-size:14px;color:#91a584}.presets span:first-child{background:#22341a}
+.destination{display:flex;justify-content:space-between;margin-top:21px;padding-bottom:17px;border-bottom:1px solid #cce8b51f;font-size:16px;color:#96ad88}.destination strong{font-weight:500;color:#d5e4c9}.approval{display:flex;justify-content:space-between;padding:17px 0;color:#95aa87;font-size:16px}.approval strong{color:#d5e4c9;font-weight:500}.paused{height:45px;border-radius:7px;display:flex;align-items:center;justify-content:space-between;padding:0 17px;background:#cce8b523;color:#b6cba8;font-size:16px}.paused span{color:#768b68}.no-send{font-size:13px;color:#7f9473;text-align:center;margin-top:10px}
+#evidence{position:absolute;left:955px;top:479px;width:509px;height:500px;padding:29px 30px;border-radius:24px;border:1px solid #bddeb950;background:radial-gradient(ellipse at 10% 0,#a6cf791d,transparent),#23301d;transform-origin:center;box-shadow:0 30px 50px #0003}.evidence-kicker{display:flex;justify-content:space-between;color:#aecb98;font-size:13px;letter-spacing:2px}.evidence-title{font-size:36px;font-weight:450;line-height:1.15;letter-spacing:-1.5px;margin:19px 0 21px}.evidence-title em{color:#e0efce}.identity{display:flex;gap:15px;align-items:center;padding:15px;border:1px solid #cce8b51f;border-radius:11px;background:#15210f55}.identity .seal{width:32px;height:32px;display:grid;place-items:center;border:1px solid #cce8b54d;border-radius:50%;font-size:17px;color:#d7eec3}.identity strong{display:block;font-size:17px;font-weight:500}.identity small{display:block;font-size:13px;margin-top:5px;color:#9eb98b;font-variant-numeric:tabular-nums}.fields{margin-top:17px}.field{display:flex;justify-content:space-between;align-items:center;font-size:15px;padding:16px 0;border-bottom:1px solid #cce8b51e;color:#a0b68e}.field strong{font-weight:450;color:#d8e9c9}.source{color:#d7edc2;font-size:15px;padding-top:20px}.risk{font-size:12px;line-height:1.5;color:#97ac86;margin-top:12px}
+#pointer{position:absolute;left:0;top:0;width:34px;height:43px;filter:drop-shadow(0 3px 6px #000a);z-index:10;opacity:0}#click-ring{position:absolute;width:52px;height:52px;border:2px solid var(--mint);border-radius:50%;z-index:9;opacity:0}
+#headline{position:absolute;left:105px;top:99px;font-size:61px;font-weight:450;letter-spacing:-2px;opacity:0;z-index:20;line-height:1.08}#headline em{color:var(--mint)}
+#proof-note{position:absolute;left:1480px;top:443px;width:350px;font-size:26px;line-height:1.6;color:#a5bc97;opacity:0;z-index:20;letter-spacing:.1px}
+#control{position:absolute;left:980px;top:210px;width:760px;z-index:5;opacity:0}.control-title{font-size:79px;line-height:1.03;font-weight:450;letter-spacing:-4px;margin-bottom:48px}.control-title em{color:var(--mint)}.control-row{display:flex;gap:22px;align-items:center;border-top:1px solid #cce8b52b;padding:23px 0;color:#d8e7cc;font-size:28px}.control-row i{width:44px;height:44px;display:grid;place-items:center;border:1px solid #cce8b541;border-radius:50%;font-style:normal;color:#b9d4a4;font-size:21px}.control-row small{font-size:19px;display:block;margin-top:6px;color:#8ca17e}.control-row .row-inner{overflow:hidden}
+#end{position:absolute;left:130px;top:140px;color:#1d2d17;opacity:0;z-index:5}.end-logo{width:115px;height:115px;object-fit:contain;margin-bottom:35px}.end-brand{font-size:37px;font-weight:700;letter-spacing:1px;margin-bottom:30px}.end-title{font-size:108px;line-height:1.05;letter-spacing:-6px;font-weight:450}.end-title em{color:#38572b}.end-sub{margin-top:39px;font-size:27px;color:#5d7650;letter-spacing:.2px}.end-rule{width:120px;height:2px;background:#567844;margin:38px 0}
+#actual{position:absolute;left:1120px;top:128px;width:610px;height:817px;overflow:hidden;border-radius:20px;border:1px solid #78956d70;box-shadow:0 35px 80px #1b321d33;transform-origin:center;opacity:0;background:#0a100a}#actual img{width:100%;display:block}#actual-label{position:absolute;left:1145px;top:959px;font-size:23px;color:#4e6742;opacity:0;z-index:6}
+#demo-note{position:absolute;right:72px;bottom:31px;font-size:22px;color:#8ba17f;z-index:25;letter-spacing:.1px}
+#filters{position:absolute;width:0;height:0;pointer-events:none}
+#debug{display:none;position:fixed;bottom:8px;left:50%;transform:translateX(-50%);z-index:100;background:#111d12f5;color:#e2ebdb;border:1px solid #cce8b555;padding:10px 14px;border-radius:10px;font:13px Manrope;gap:12px;align-items:center}
+#debug.on{display:flex}#debug input{width:90px;padding:6px;background:#263420;color:#fff;border:1px solid #8fa18f;border-radius:4px}#debug button{padding:7px 12px;background:#cce8b5;color:#162210;border:0;border-radius:4px;cursor:pointer}#debug output{min-width:65px;font-variant-numeric:tabular-nums}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+</style>
+<script>/* GSAP_BUNDLE */</script>
+</head>
+<body>
+<svg id="filters" aria-hidden="true"><defs></defs></svg>
+<div id="stage" role="img" aria-label="MANDEVYR Actions product film. A ten EURC walkthrough using the verified mainnet contract evidence. No funds sent.">
+ <div id="surface"></div><div id="light"></div><div id="paper"></div>
+ <div id="world">
+  <div class="orbit"></div><div class="orbit two"></div>
+  <div id="intro-brand"><img src="assets/mandevyr.png" alt="">MANDEVYR.</div>
+  <div id="intro"><span class="line split">Your capital</span><span class="line split"><em>Your call</em></span></div>
+  <div id="product">
+   <div class="chrome"><i></i><i></i><i></i><b>MANDEVYR / Actions</b><span>↗</span></div>
+   <div class="sidebar"><div class="brand"><img src="assets/mandevyr.png" alt="MANDEVYR">MANDEVYR.</div><div class="nav">◇ <b>Overview</b></div><div class="nav">⌕ <b>Explore</b></div><div class="nav">▯ <b>Watchlist</b></div><div class="nav">♧ <b>Mandate</b></div><div class="nav">⌁ <b>Preflight</b></div><div class="nav">◷ <b>History</b></div><div class="nav active">↗ <b>Actions</b></div><div class="sidebar-foot">Morpho vaults on Arc</div></div>
+   <div class="topbar"><div class="net"><i class="dot"></i>Arc Mainnet</div><div class="wallet">Connect wallet</div></div>
+   <h2 class="ui-title">Your capital. <em>Your call.</em></h2>
+   <div class="vaults">
+    <div class="vault selected" id="galaxy"><img class="logo" src="assets/galaxy.png" alt="Galaxy"><img class="token" src="assets/usdc.svg" alt=""><span class="check">✓</span><strong>Galaxy USDC</strong><small>Galaxy Curation</small><span class="asset-tag">USDC</span></div>
+    <div class="vault" id="gauntlet"><img class="logo" src="assets/gauntlet.svg" alt="Gauntlet"><img class="token" src="assets/usdc.svg" alt=""><span class="check">↗</span><strong>Gauntlet USDC Prime</strong><small>Gauntlet</small><span class="asset-tag">USDC</span></div>
+    <div class="vault" id="eurc"><img class="logo" src="assets/gauntlet.svg" alt="Gauntlet"><img class="token" src="assets/eurc.svg" alt=""><span class="check">↗</span><strong>Gauntlet EURC Prime</strong><small>Gauntlet</small><span class="asset-tag">EURC</span></div>
+   </div>
+   <div class="compose">
+    <div class="panel-title">A move on your terms.<span>Arc Mainnet</span></div>
+    <div class="tabs"><div class="tab-bg"></div><div class="tab active" id="deposit-tab">↙ &nbsp; Deposit</div><div class="tab" id="withdraw-tab">↗ &nbsp; Withdraw</div></div>
+    <div class="amount"><div class="amount-label">You deposit</div><div class="amount-main"><span class="number">10</span><div class="unit"><img class="asset-img" src="assets/usdc.svg" alt=""><span class="asset-name">USDC</span></div></div><div class="presets"><span>10</span><span>50</span><span>100</span></div></div>
+    <div class="destination"><span class="direction">↳ &nbsp; To vault</span><strong class="vault-name">Galaxy USDC</strong></div>
+    <div class="approval"><span>Wallet approval</span><strong>Always yours &nbsp; ♧</strong></div>
+    <div class="paused">Wallet actions paused<span>Preview environment</span></div><div class="no-send">Preparing a review never sends funds.</div>
+   </div>
+   <div id="evidence">
+    <div class="evidence-kicker">03 / VERIFY <span>◇</span></div><div class="evidence-title">A closer look.<br><em>Before you commit.</em></div>
+    <div class="identity"><span class="seal">✓</span><div><strong>Contract identity matched</strong><small id="block">Captured mainnet evidence</small></div></div>
+    <div class="fields"><div class="field"><span>Network</span><strong>Arc Mainnet · 5042</strong></div><div class="field"><span>Vault</span><strong id="address">0x8E3574…6112AF ↗</strong></div><div class="field"><span>Underlying asset</span><strong class="asset-name">USDC</strong></div></div>
+    <div class="source">Explore this vault on Morpho &nbsp; ↗</div><div class="risk">Identity checks do not assess strategy or guarantee withdrawal liquidity.</div>
+   </div>
+   <svg id="pointer" viewBox="0 0 32 40"><path d="M3 2L29 23 17 24 12 37Z" fill="#f1f6e9" stroke="#28451d" stroke-width="2"/></svg><div id="click-ring"></div>
+  </div>
+ </div>
+ <div id="headline"></div><div id="proof-note">Recorded on mainnet<br>04 Oct 2026</div>
+ <div id="control"><div class="control-title">Before your<br><em>wallet opens</em></div><div class="control-row"><i>1</i><div class="row-inner">Review the details<small>Amount, limits, contract, estimated gas</small></div></div><div class="control-row"><i>2</i><div class="row-inner">Approve when needed<small>A separate token or vault-share approval</small></div></div><div class="control-row"><i>3</i><div class="row-inner">Confirm in your wallet<small>Every transaction needs your confirmation</small></div></div></div>
+ <div id="end"><img class="end-logo" src="assets/mandevyr.png" alt="MANDEVYR logo"><div class="end-brand">MANDEVYR.</div><div class="end-title">A move on<br><em>your terms</em></div><div class="end-rule"></div><div class="end-sub">Morpho vaults on Arc Mainnet</div></div>
+ <div id="actual"><img src="assets/live-eurc-deposit.png" alt="Actual local Actions UI capture, EURC selected, wallet actions paused"></div><div id="actual-label">The actual Actions workspace ↗</div>
+ <div id="demo-note">Product preview · No funds sent</div><div id="grain"></div>
+</div>
+<audio id="soundtrack" src="assets/soundtrack.mp3" preload="auto"></audio>
+<div id="debug"><button id="play" type="button">Play / pause</button><button id="restart" type="button">Restart</button><label>Timeline seconds <input aria-label="Timeline seconds" id="time-input" type="number" min="0" max="40" step="0.1" value="0"></label><output id="clock">0.00s</output><span id="audio-state">Audio ready</span></div>
+<script>
+/* Camera, split typography, directional blur, clean/debug controls and deterministic export contract adapted from starter-opener. */
+const $=(s,r=document)=>r.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
+const W=1920,H=1080,DURATION=40,Q=new URLSearchParams(location.search),tl=gsap.timeline({paused:true});
+const CAM={s:1,x:960,y:540}, STATE={typed:0,light:0}, audio=$('#soundtrack');
+let fc=0;
+function blurTween(target,at,from,to,dur,vertical=false){const NS='http://www.w3.org/2000/svg',f=document.createElementNS(NS,'filter'),g=document.createElementNS(NS,'feGaussianBlur'),o={v:from};f.id='mb'+fc++;f.setAttribute('x','-80%');f.setAttribute('y','-80%');f.setAttribute('width','260%');f.setAttribute('height','260%');g.setAttribute('stdDeviation','0 0');f.appendChild(g);$('#filters defs').appendChild(f);tl.set(target,{filter:`url(#${f.id})`},at);tl.fromTo(o,{v:from},{v:to,duration:dur,ease:'power3.out',immediateRender:false,onUpdate(){g.setAttribute('stdDeviation',vertical?`${o.v*.06} ${o.v}`:`${o.v} ${o.v*.06}`)}},at);tl.set(target,{filter:'none'},at+dur)}
+$$('.split').forEach(el=>{const host=el.querySelector('em')||el;host.innerHTML=host.textContent.split(' ').map(word=>`<span class="word">${word}</span>`).join(' ')});
+function words(el,at){tl.fromTo($$('.word').filter(n=>el.contains(n)),{y:80,opacity:0,rotationX:-25},{y:0,opacity:1,rotationX:0,duration:.9,stagger:.13,ease:'power4.out',immediateRender:false},at);blurTween(el,at,23,0,1,true)}
+function shot(at,duration,s,x,y){tl.to(CAM,{s,x,y,duration,ease:'power2.inOut'},at)}
+function click(at,x,y){tl.to('#pointer',{x,y,opacity:1,duration:.8,ease:'power3.inOut'},at-.9);tl.to('#pointer',{scale:.86,duration:.11,ease:'power2.in'},at);tl.to('#pointer',{scale:1,duration:.17,ease:'power2.out'},at+.11);tl.fromTo('#click-ring',{x:x-24,y:y-24,opacity:.7,scale:.2},{opacity:0,scale:1.45,duration:.6,ease:'power2.out',immediateRender:false},at)}
+// A single persistent product, with connected camera moves and state changes.
+tl.set('#product',{x:1160,y:240,scale:.72,rotationY:-22,rotationX:7,opacity:.7},0);
+tl.set('#intro-brand',{opacity:0,y:12},0);tl.to('#intro-brand',{opacity:1,y:0,duration:1,ease:'power3.out'},.05);
+words($('#intro .line:first-child'),.28);words($('#intro .line:last-child'),.9);
+tl.to('#intro',{y:-120,opacity:0,duration:.6,ease:'power2.in'},2.8);blurTween('#intro',2.8,0,20,.6,true);
+tl.to('#intro-brand',{opacity:0,y:-30,duration:.5},3.05);
+tl.to('#product',{x:190,y:55,scale:1,rotationY:0,rotationX:0,opacity:1,duration:2.1,ease:'power3.inOut'},2.75);
+tl.fromTo('.vault',{y:40,opacity:0},{y:0,opacity:1,stagger:.12,duration:.85,ease:'power3.out',immediateRender:false},4.3);
+tl.fromTo(['.compose','#evidence'],{y:90,opacity:0},{y:0,opacity:1,stagger:.18,duration:1,ease:'power3.out',immediateRender:false},4.8);
+shot(5.3,1.4,.92,960,540);
+shot(8.9,1.35,1.4,1280,395);
+click(11.35,1245,343);tl.to('#eurc',{scale:.97,duration:.12},11.35);tl.to('#eurc',{scale:1,duration:.35,ease:'back.out(1.4)'},11.47);
+shot(12.55,1.3,1.5,775,727);click(14.25,610,708);
+tl.fromTo('.amount',{borderColor:'#cce8b53c'},{borderColor:'#cce8b5',duration:.3,immediateRender:false},14.25);tl.to('.amount',{borderColor:'#cce8b53c',duration:1},15);
+shot(15.9,1.25,1.6,1395,760);
+tl.to('#evidence',{scale:1.045,y:-12,boxShadow:'0 45px 100px #0008',duration:.8,ease:'power2.out'},16.1);
+tl.fromTo('.seal',{scale:.6},{scale:1,duration:.6,ease:'back.out(1.5)',immediateRender:false},16.8);
+tl.to('#proof-note',{opacity:1,duration:.4},17.05);tl.to('#proof-note',{opacity:0,duration:.3},19.1);
+shot(19.0,1.1,1.48,786,730);click(20.05,727,573);
+tl.to('.tab-bg',{x:311,duration:.45,ease:'power3.inOut'},20.05);
+tl.to('#evidence',{scale:1,y:0,boxShadow:'0 30px 50px #0003',duration:.7},19.1);
+shot(22.6,1.3,.72,730,660);
+tl.to('#product',{x:-630,y:185,scale:.84,rotationY:13,rotationX:2,duration:1.4,ease:'power3.inOut'},22.65);
+tl.fromTo('#control',{opacity:0,x:140},{opacity:1,x:0,duration:1.1,ease:'power3.out',immediateRender:false},23.25);blurTween('#control',23.25,20,0,1);
+tl.fromTo('.control-row',{x:60,opacity:0},{x:0,opacity:1,stagger:.5,duration:.8,ease:'power3.out',immediateRender:false},24.1);
+tl.to('#product',{y:160,rotationY:9,duration:5,ease:'sine.inOut'},24.5);
+tl.to('#control .control-title',{opacity:0,y:-40,duration:.45},29.05);
+tl.to('.control-row',{opacity:0,x:40,duration:.4,stagger:.06},29.1);
+tl.to('#control',{opacity:0,duration:.1},29.8);
+tl.to('#headline',{opacity:1,duration:.5},29.6);
+tl.to('#product',{rotationY:0,rotationX:0,x:-310,y:120,scale:.72,duration:1.5,ease:'power3.inOut'},29.6);
+shot(29.6,1.5,.78,830,485);
+tl.to('#headline',{opacity:0,y:-35,duration:.4},34.65);blurTween('#headline',34.65,0,18,.4,true);
+tl.to('#paper',{clipPath:'circle(120% at 78% 53%)',duration:1.5,ease:'power3.inOut'},34.7);
+tl.to('#product',{scale:.45,x:1120,y:230,rotationY:-10,opacity:0,duration:1.5,ease:'power3.inOut'},34.7);
+tl.fromTo('#actual',{opacity:0,x:180,rotationY:-13,scale:.87},{opacity:1,x:0,rotationY:-4,scale:1,duration:1.1,ease:'power3.out',immediateRender:false},35.2);
+tl.to('#actual',{y:-12,rotationY:0,duration:3.7,ease:'sine.inOut'},36.3);
+tl.fromTo('#end',{opacity:0,y:80},{opacity:1,y:0,duration:1.05,ease:'power4.out',immediateRender:false},35.1);blurTween('#end',35.1,22,0,1.05,true);
+tl.to('#actual-label',{opacity:1,duration:.7},36.25);
+tl.to('#end',{y:-9,duration:3,ease:'sine.inOut'},36.3);
+tl.to('#demo-note',{color:'#59734b',duration:.8},35.2);
+tl.to({}, {duration:.01},DURATION-.01);
+
+// A seeded texture, generated once. Every changing visual is derived from timeline time.
+const noise=document.createElement('canvas');noise.width=noise.height=160;const nc=noise.getContext('2d'),pixels=nc.createImageData(160,160);let seed=7411;for(let i=0;i<pixels.data.length;i+=4){seed=(seed*1664525+1013904223)>>>0;const n=seed>>>24;pixels.data.set([n,n,n,255],i)}nc.putImageData(pixels,0,0);$('#grain').style.backgroundImage=`url(${noise.toDataURL()})`;
+let lastMode='';
+function render(t){
+ const breathe=1+.003*Math.sin(t*.62),s=CAM.s*breathe;$('#world').style.transform=`translate(${W/2-CAM.x*s}px,${H/2-CAM.y*s}px) scale(${s})`;
+ $('#light').style.transform=`translate(${Math.sin(t*.14)*230}px,${Math.cos(t*.13)*160}px) rotate(${t*1.6}deg)`;
+ $('.orbit').style.transform=`rotateX(55deg) rotateY(${-25+t*.7}deg) rotateZ(${t*1.8}deg)`;$('.orbit.two').style.transform=`rotateX(60deg) rotateY(${15-t*.6}deg) rotateZ(${-t*1.2}deg)`;
+ const k=Math.floor(t*12);$('#grain').style.transform=`translate(${k*37%60-30}px,${k*61%60-30}px)`;
+ const eurc=t>=11.35,withdraw=t>=20.05,mode=`${eurc}-${withdraw}`;
+ if(lastMode!==mode){lastMode=mode;$('#galaxy').classList.toggle('selected',!eurc);$('#eurc').classList.toggle('selected',eurc);$('#galaxy .check').textContent=eurc?'↗':'✓';$('#eurc .check').textContent=eurc?'✓':'↗';$$('.asset-name').forEach(n=>n.textContent=eurc?'EURC':'USDC');$$('.asset-img').forEach(n=>n.src=eurc?'assets/eurc.svg':'assets/usdc.svg');$('.vault-name').textContent=eurc?'Gauntlet EURC Prime':'Galaxy USDC';$('#address').textContent=eurc?'0x05863F…6e50B9 ↗':'0x8E3574…6112AF ↗';$('#block').textContent=eurc?'Arc block 24,237,559 · captured':'Captured mainnet evidence';$('.amount-label').textContent=withdraw?'You withdraw':'You deposit';$('.direction').textContent=withdraw?'↳  From vault':'↳  To vault';$('#withdraw-tab').classList.toggle('active',withdraw);$('#deposit-tab').classList.toggle('active',!withdraw)}
+ $('.number').textContent=t>=13.5&&t<14.25?'':t>=14.25&&t<14.52?'1':'10';
+ $('#headline').innerHTML=t<31.7?'This preview<br><em>sends no funds</em>':'Every move<br><em>needs your confirmation</em>';
+ $('#headline').style.left='1010px';$('#headline').style.top=t<31.7?'370px':'344px';
+ if(t>21.5||t<9.5)$('#pointer').style.visibility='hidden';else $('#pointer').style.visibility='visible';
+ $('#clock').textContent=t.toFixed(2)+'s';
+}
+const fit=()=>$('#stage').style.transform=`translate(-50%,-50%) scale(${Math.min(innerWidth/W,innerHeight/H)})`;addEventListener('resize',fit);fit();
+function seek(t){playbackRequested=false;const target=Math.max(0,Math.min(DURATION,Number.isFinite(t)?t:0));audio.pause();audio.currentTime=Math.min(target,39.99);tl.pause(target,false);render(target);$('#time-input').value=String(target);$('#audio-state').textContent='Paused'}
+let playbackRequested=false;
+async function play(){if(tl.time()>=DURATION-.01){tl.pause(0);audio.currentTime=0}audio.currentTime=tl.time();try{await audio.play();playbackRequested=true;tl.play();$('#audio-state').textContent='Audio playing'}catch{playbackRequested=false;tl.pause();$('#audio-state').textContent='Audio needs a click'}}
+function pause(){tl.pause();audio.pause();playbackRequested=false;$('#audio-state').textContent='Paused'}
+function toggle(){tl.paused()?void play():pause()}
+$('#play').onclick=toggle;$('#restart').onclick=()=>{seek(0);void play()};$('#time-input').addEventListener('input',e=>seek(Number(e.target.value)));
+addEventListener('keydown',e=>{if(e.target instanceof HTMLInputElement)return;if(e.code==='Space'){e.preventDefault();toggle()}if(e.key.toLowerCase()==='r'){seek(0);void play()}});
+$('#stage').addEventListener('click',()=>{if(tl.paused())void play()});
+if(Q.has('debug'))$('#debug').classList.add('on');
+tl.eventCallback('onUpdate',()=>{render(tl.time());if(playbackRequested&&Math.abs(audio.currentTime-tl.time())>.18)tl.time(audio.currentTime,false)});
+tl.eventCallback('onComplete',()=>{if(!playbackRequested)return;playbackRequested=false;audio.pause();audio.currentTime=0;tl.pause(0);render(0);void play()});
+window.OPENER={tl,W,H,DURATION,seek,seekFrame:async t=>seek(t),ready:false};
+Promise.all([document.fonts.ready,...Array.from(document.images).map(img=>img.decode().catch(()=>{}))]).then(()=>{window.OPENER.ready=true;seek(Number(Q.get('t'))||0);if(!Q.has('clean')&&!Q.has('debug'))void play()});
+</script>
+</body></html>
