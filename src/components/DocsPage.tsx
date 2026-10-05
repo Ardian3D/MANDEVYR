@@ -375,9 +375,9 @@ export function DocsPage() {
                 <p>
                   x402 is an open protocol for requesting and settling payment
                   for internet resources through an HTTP-based flow. A MANDEVYR
-                  integration could help an account owner inspect a service,
-                  price, and spending limit before an agent makes a paid
-                  request. The preview does not send x402 payments.
+                  integration lets an account owner inspect a service, price,
+                  and spending limit. A wallet-restricted pilot can buy one
+                  saved report for 0.01 USDC with explicit wallet signing.
                 </p>
                 <a
                   href="https://github.com/x402-foundation/x402"
@@ -417,14 +417,15 @@ export function DocsPage() {
                   The app has wallet-signed accounts, saved mandates and
                   preflights, Watchtower, Morpho Actions, MDVYR holder utility,
                   and agent spending reviews. The landing preflight remains an
-                  example. Paid x402 settlement and automatic agent payments
-                  are not active. A small real-fund Galaxy USDC approval,
+                  example. An x402 checkout is available to one test wallet;
+                  a funded settlement has not yet been verified. Automatic
+                  agent payments are not active. A small real-fund Galaxy USDC approval,
                   deposit, and withdrawal succeeded on Arc Mainnet; the two
                   Gauntlet vaults still need funded tests.
                 </p>
               </div>
               <p>
-                Automatic delegation, paid API settlement, and further wallet
+                Public paid API access, automatic delegation, and further wallet
                 integrations need their own threat review, testing, and clear
                 user-facing disclosures before activation.
               </p>
@@ -456,8 +457,8 @@ export function DocsPage() {
                   <strong>Actions</strong>
                   <p>
                     Morpho actions require wallet confirmation. The x402 seller
-                    endpoint is built but paid production settlement is paused
-                    until its payment test is complete.
+                    endpoint is limited to a test wallet until its funded
+                    settlement and recovery tests are complete.
                   </p>
                 </div>
                 <div>

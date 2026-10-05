@@ -11,12 +11,13 @@ import { paymentMiddleware, x402ResourceServer } from "@x402/hono";
 import { HTTPFacilitatorClient } from "@x402/core/server";
 import { ExactEvmScheme } from "@x402/evm/exact/server";
 import { assessAgentSpend, DEFAULT_AGENT_POLICY, validateAgentPolicy, type AgentPolicy } from "../p3/policy.ts";
+import { matchesSettledX402Transfer, parseSignedX402Payment, X402_AMOUNT_RAW, X402_ASSET, X402_NETWORK } from "../p3/payment-recovery.ts";
 import { getP2Config, p2Client, prepareP2Action, verifyP2Adapter, type P2Bindings } from "../p2/adapter.ts";
 import { isExpired, parsePositiveRaw, receiptState, reservedDepositRaw, type PreparedAction } from "../p2/core.ts";
 
 type Statement = { bind(...values: unknown[]): Statement; first<T>(): Promise<T | null>; all<T>(): Promise<{ results: T[] }>; run(): Promise<{ meta: { changes: number } }> };
 export type P1Database = { prepare(sql: string): Statement };
-type Env = { Bindings: { DB?: P1Database; MANDEVYR_PUBLIC_ORIGINS?: string; P3_X402_PAYEE?: string; P3_X402_ENABLED?: string } & P2Bindings };
+type Env = { Bindings: { DB?: P1Database; MANDEVYR_PUBLIC_ORIGINS?: string; P3_X402_PAYEE?: string; P3_X402_ENABLED?: string; P3_X402_TEST_WALLET?: string } & P2Bindings };
 type Session = { wallet: string; tokenHash: string };
 type MandateRow = { id: string; version: number; rules_json: string; created_at: string; supersedes_id: string | null };
 type ReportRow = { report_json: string; input_hash: string };
@@ -78,10 +79,11 @@ export function createP1Api(getRegistry: () => Promise<RegistryResponse>, verify
       await c.env.DB!.prepare("SELECT revision FROM p2_wallet_revision LIMIT 1").all();
       await c.env.DB!.prepare("SELECT wallet FROM p4_report_uses LIMIT 1").all();
       await c.env.DB!.prepare("SELECT wallet FROM p3_x402_payments LIMIT 1").all();
+      await c.env.DB!.prepare("SELECT wallet FROM p3_x402_pending LIMIT 1").all();
       await c.env.DB!.prepare("SELECT wallet FROM p3_agent_policies LIMIT 1").all();
       const config = getP2Config(c.env);
-      return c.json({ status: "ok", chainId: config.chainId, database: "ready", writesEnabled: config.writesEnabled, holderUtilityReady: true, agentPolicyReady: true, x402Enabled: c.env?.P3_X402_ENABLED === "true" });
-    } catch { return c.json({ status: "degraded", database: "migration required", writesEnabled: false, holderUtilityReady: false, agentPolicyReady: false, x402Enabled: false }, 503); }
+      return c.json({ status: "ok", chainId: config.chainId, database: "ready", writesEnabled: config.writesEnabled, holderUtilityReady: true, agentPolicyReady: true, x402Enabled: c.env?.P3_X402_ENABLED === "true" && !c.env?.P3_X402_TEST_WALLET, x402PilotEnabled: c.env?.P3_X402_ENABLED === "true" && Boolean(c.env?.P3_X402_TEST_WALLET) });
+    } catch { return c.json({ status: "degraded", database: "migration required", writesEnabled: false, holderUtilityReady: false, agentPolicyReady: false, x402Enabled: false, x402PilotEnabled: false }, 503); }
   });
 
   app.post("/auth/nonce", async (c) => {
@@ -246,16 +248,22 @@ export function createP1Api(getRegistry: () => Promise<RegistryResponse>, verify
     return c.json({ deepDive: await deepDiveFor(report), access: { tier, tokenBlock: evidence?.blockNumber ?? null, day, repeat: false } });
   });
 
-  app.get("/x402/config", async (c) => c.json({
-    enabled: c.env?.P3_X402_ENABLED === "true" && Boolean(c.env?.P3_X402_PAYEE && /^0x[0-9a-fA-F]{40}$/.test(c.env.P3_X402_PAYEE)),
+  app.get("/x402/config", async (c) => {
+    const current = await session(c);
+    const pilot = c.env?.P3_X402_TEST_WALLET;
+    return c.json({
+    enabled: c.env?.P3_X402_ENABLED === "true" && Boolean(c.env?.P3_X402_PAYEE && /^0x[0-9a-fA-F]{40}$/.test(c.env.P3_X402_PAYEE)) && (!pilot || current?.wallet.toLowerCase() === pilot.toLowerCase()),
+    mode: c.env?.P3_X402_ENABLED === "true" ? pilot ? "pilot" : "public" : "off",
     network: "eip155:5042",
     asset: "0x3600000000000000000000000000000000000000",
     priceRaw: "10000",
     priceUsdc: "0.01",
+    payee: c.env?.P3_X402_PAYEE ?? null,
     facilitator: "https://facilitator.arcusnetwork.co",
     resource: "/api/p1/x402/reports/{report_id}/deep-dive",
     manualWalletApproval: true,
-  }));
+  });
+  });
 
   app.use("/x402/reports/:id/deep-dive", async (c, next) => {
     const current = await session(c);
@@ -268,10 +276,29 @@ export function createP1Api(getRegistry: () => Promise<RegistryResponse>, verify
     if (paid) { await next(); return; }
     const payee = c.env?.P3_X402_PAYEE;
     if (c.env?.P3_X402_ENABLED !== "true" || !payee || !/^0x[0-9a-fA-F]{40}$/.test(payee)) return c.json({ error: "The paid API is not active. Use the free or holder quota instead." }, 503);
+    if (c.env?.P3_X402_TEST_WALLET && current.wallet.toLowerCase() !== c.env.P3_X402_TEST_WALLET.toLowerCase()) return c.json({ error: "The paid API is currently limited to its test wallet." }, 503);
     const key = c.req.header("Idempotency-Key");
     if (!key || !/^[a-zA-Z0-9_-]{8,80}$/.test(key)) return c.json({ error: "An Idempotency-Key header (8–80 letters, digits, _ or -) is required." }, 400);
     const previousKey = await c.env.DB!.prepare("SELECT report_id FROM p3_x402_payments WHERE wallet = ? AND idempotency_key = ?").bind(current.wallet, key).first<{ report_id: string }>();
     if (previousKey) return c.json({ error: "That payment key belongs to another report." }, 409);
+    const signatureHeader = c.req.header("PAYMENT-SIGNATURE");
+    if (signatureHeader) {
+      let signedPayment;
+      try { signedPayment = parseSignedX402Payment(signatureHeader, current.wallet, payee); }
+      catch (error) { return c.json({ error: error instanceof Error ? error.message : "Invalid payment signature." }, 400); }
+      const nowSeconds = Math.floor(Date.now() / 1000);
+      if (signedPayment.validAfter > BigInt(nowSeconds) || signedPayment.validBefore <= BigInt(nowSeconds) || signedPayment.validBefore > BigInt(nowSeconds + 86400)) return c.json({ error: "The payment authorization must be valid now and expire within 24 hours." }, 400);
+      const payloadHash = await sha256(signatureHeader);
+      const prior = await c.env.DB!.prepare("SELECT payload_hash FROM p3_x402_pending WHERE wallet = ? AND report_id = ? AND idempotency_key = ?").bind(current.wallet, reportId, key).first<{ payload_hash: string }>();
+      if (prior && prior.payload_hash !== payloadHash) return c.json({ error: "This payment key is already bound to another signature." }, 409);
+      if (!prior) {
+        if (!await rateAllowed(c.env.DB!, `x402:${current.wallet}`, 20, 86400)) return c.json({ error: "Daily paid request limit reached." }, 429);
+        try {
+          await c.env.DB!.prepare("DELETE FROM p3_x402_pending WHERE wallet = ? AND report_id = ? AND valid_before < ? AND NOT EXISTS (SELECT 1 FROM p3_x402_payments WHERE wallet = ? AND report_id = ?)").bind(current.wallet, reportId, nowSeconds, current.wallet, reportId).run();
+          await c.env.DB!.prepare("INSERT INTO p3_x402_pending (wallet, report_id, idempotency_key, payload_hash, valid_before, created_at) VALUES (?, ?, ?, ?, ?, ?)").bind(current.wallet, reportId, key, payloadHash, Number(signedPayment.validBefore), new Date().toISOString()).run();
+        } catch { return c.json({ error: "This report already has an active payment signature. Retry or recover that payment before signing again." }, 409); }
+      }
+    }
     let middleware = x402MiddlewareByPayee.get(payee.toLowerCase());
     if (!middleware) {
       middleware = paymentMiddleware({
@@ -291,13 +318,14 @@ export function createP1Api(getRegistry: () => Promise<RegistryResponse>, verify
     const encoded = c.res.headers.get("PAYMENT-RESPONSE");
     if (c.res.status !== 200 || !encoded) return;
     try {
-      const receipt = JSON.parse(atob(encoded)) as { transaction?: unknown; network?: unknown; success?: unknown };
-      if (receipt.success !== true || typeof receipt.transaction !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(receipt.transaction)) throw new Error("Invalid settlement receipt");
+      const receipt = JSON.parse(atob(encoded)) as { transaction?: unknown; network?: unknown; payer?: unknown; success?: unknown };
+      if (receipt.success !== true || receipt.network !== X402_NETWORK || (receipt.payer && String(receipt.payer).toLowerCase() !== current.wallet.toLowerCase()) || typeof receipt.transaction !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(receipt.transaction)) throw new Error("Invalid settlement receipt");
       const resultHash = c.res.headers.get("X-Mandevyr-Result-Hash");
       if (!resultHash || !/^[0-9a-f]{64}$/.test(resultHash)) throw new Error("Result hash missing from paid response");
-      await c.env.DB!.prepare("INSERT OR IGNORE INTO p3_x402_payments (wallet, report_id, idempotency_key, network, amount_raw, asset, transaction_hash, result_hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
-        .bind(current.wallet, reportId, key, "eip155:5042", "10000", "0x3600000000000000000000000000000000000000", receipt.transaction, resultHash, new Date().toISOString()).run();
-    } catch (error) { console.error("x402 settlement audit failed; preserve PAYMENT-RESPONSE for manual recovery", error); }
+      await c.env.DB!.prepare("INSERT INTO p3_x402_payments (wallet, report_id, idempotency_key, network, amount_raw, asset, transaction_hash, result_hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        .bind(current.wallet, reportId, key, X402_NETWORK, X402_AMOUNT_RAW, X402_ASSET, receipt.transaction, resultHash, new Date().toISOString()).run();
+      c.header("X-Mandevyr-Audit", "recorded");
+    } catch (error) { c.header("X-Mandevyr-Audit", "recovery-required"); console.error("x402 settlement audit failed; preserve PAYMENT-RESPONSE for recovery", error); }
   });
 
   app.get("/x402/reports/:id/deep-dive", async (c) => {
@@ -306,8 +334,46 @@ export function createP1Api(getRegistry: () => Promise<RegistryResponse>, verify
     const row = await c.env.DB!.prepare("SELECT report_json FROM p1_reports WHERE id = ? AND wallet = ?").bind(c.req.param("id"), current.wallet).first<ReportRow>();
     if (!row) return c.json({ error: "Report not found." }, 404);
     const deepDive = await deepDiveFor(JSON.parse(row.report_json) as PreflightReport);
-    c.header("X-Mandevyr-Result-Hash", await sha256(json(deepDive)));
+    const resultHash = await sha256(json(deepDive));
+    if (c.req.header("PAYMENT-SIGNATURE")) {
+      const key = c.req.header("Idempotency-Key");
+      const pending = await c.env.DB!.prepare("SELECT payload_hash FROM p3_x402_pending WHERE wallet = ? AND report_id = ? AND idempotency_key = ?").bind(current.wallet, c.req.param("id"), key).first<{ payload_hash: string }>();
+      if (pending) {
+        const changed = await c.env.DB!.prepare("UPDATE p3_x402_pending SET result_hash = ? WHERE wallet = ? AND report_id = ? AND idempotency_key = ? AND payload_hash = ?")
+          .bind(resultHash, current.wallet, c.req.param("id"), key, await sha256(c.req.header("PAYMENT-SIGNATURE")!)).run();
+        if (changed.meta.changes !== 1) return c.json({ error: "Payment audit preparation failed. No payment was settled." }, 503);
+      }
+    }
+    c.header("X-Mandevyr-Result-Hash", resultHash);
     return c.json({ deepDive, payment: "x402 or prior paid access" });
+  });
+
+  app.post("/x402/reports/:id/recover", async (c) => {
+    const current = await session(c);
+    if (!current) return c.json({ error: "Wallet sign-in required." }, 401);
+    const reportId = c.req.param("id");
+    const owned = await c.env.DB!.prepare("SELECT report_json FROM p1_reports WHERE id = ? AND wallet = ?").bind(reportId, current.wallet).first<ReportRow>();
+    if (!owned) return c.json({ error: "Report not found." }, 404);
+    const body = await c.req.json().catch(() => null) as { idempotencyKey?: unknown; paymentSignature?: unknown; txHash?: unknown } | null;
+    if (typeof body?.idempotencyKey !== "string" || !/^[a-zA-Z0-9_-]{8,80}$/.test(body.idempotencyKey) || typeof body.paymentSignature !== "string" || typeof body.txHash !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(body.txHash)) return c.json({ error: "Payment key, signed payload, and Arc transaction hash are required." }, 400);
+    const existing = await c.env.DB!.prepare("SELECT transaction_hash FROM p3_x402_payments WHERE wallet = ? AND report_id = ?").bind(current.wallet, reportId).first<{ transaction_hash: string }>();
+    if (existing) return c.json({ recovered: true, transactionHash: existing.transaction_hash, alreadyRecorded: true });
+    const payee = c.env?.P3_X402_PAYEE;
+    if (!payee || !/^0x[0-9a-fA-F]{40}$/.test(payee)) return c.json({ error: "Payment receiver is unavailable." }, 503);
+    let payment;
+    try { payment = parseSignedX402Payment(body.paymentSignature, current.wallet, payee); }
+    catch (error) { return c.json({ error: error instanceof Error ? error.message : "Invalid payment signature." }, 400); }
+    const pending = await c.env.DB!.prepare("SELECT payload_hash, result_hash FROM p3_x402_pending WHERE wallet = ? AND report_id = ? AND idempotency_key = ?").bind(current.wallet, reportId, body.idempotencyKey).first<{ payload_hash: string; result_hash: string | null }>();
+    if (!pending || pending.payload_hash !== await sha256(body.paymentSignature) || !pending.result_hash) return c.json({ error: "No matching prepared payment was recorded for this report." }, 409);
+    try {
+      const [tx, receipt] = await Promise.all([p2Client.getTransaction({ hash: body.txHash as `0x${string}` }), p2Client.getTransactionReceipt({ hash: body.txHash as `0x${string}` })]);
+      if (!matchesSettledX402Transfer(payment, tx, receipt)) return c.json({ error: "The Arc transaction does not match this payment authorization." }, 409);
+    } catch { return c.json({ error: "The Arc settlement receipt is not available yet. Check the hash before retrying." }, 425); }
+    try {
+      await c.env.DB!.prepare("INSERT INTO p3_x402_payments (wallet, report_id, idempotency_key, network, amount_raw, asset, transaction_hash, result_hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        .bind(current.wallet, reportId, body.idempotencyKey, X402_NETWORK, X402_AMOUNT_RAW, X402_ASSET, body.txHash, pending.result_hash, new Date().toISOString()).run();
+      return c.json({ recovered: true, transactionHash: body.txHash, alreadyRecorded: false });
+    } catch { return c.json({ error: "Payment audit is still unavailable or this transaction was already claimed." }, 503); }
   });
 
   app.get("/agent/policy", async (c) => {

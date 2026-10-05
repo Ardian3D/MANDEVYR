@@ -70,7 +70,7 @@ Production builds show the P1/P2 routes by default; `VITE_P1_ENABLED=false` is a
 
 The landing preflight is a local concept demonstration with illustrative values. It is separate from the live read-only workspace and cannot perform a payment or trade. `/docs` covers the product model, live registry methodology, current trust boundaries, and roadmap.
 
-The supplied MANDEVYR logos remain in `public/`; the official Arc dark-background logo is in `public/brand/`. MDVYR is live on Arc Mainnet at `0xeD2CBF69b36A0E26De6d121be086f31EDAf3b424`. The Utility page grants five saved-report deep dives per UTC day to wallets with at least 1 MDVYR, compared with one for signed-in wallets without it. The x402 seller endpoint is behind `P3_X402_ENABLED` until a real settlement test passes.
+The supplied MANDEVYR logos remain in `public/`; the official Arc dark-background logo is in `public/brand/`. MDVYR is live on Arc Mainnet at `0xeD2CBF69b36A0E26De6d121be086f31EDAf3b424`. The Utility page grants five saved-report deep dives per UTC day to wallets with at least 1 MDVYR, compared with one for signed-in wallets without it. The 0.01 USDC x402 checkout is restricted to `P3_X402_TEST_WALLET` for a funded Arc Mainnet pilot; public access remains gated until settlement and recovery are tested with a wallet.
 
 See [P3/P4 release record](docs/phase-3-4.md) for verified facts, current API status, remaining gates, and deployment order.
 
