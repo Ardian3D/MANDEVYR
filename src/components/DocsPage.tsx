@@ -418,8 +418,9 @@ export function DocsPage() {
                   preflights, Watchtower, Morpho Actions, MDVYR holder utility,
                   and agent spending reviews. The landing preflight remains an
                   example. Paid x402 settlement and automatic agent payments
-                  are not active; real-fund P2 transactions still need a funded
-                  mainnet test.
+                  are not active. A small real-fund Galaxy USDC approval,
+                  deposit, and withdrawal succeeded on Arc Mainnet; the two
+                  Gauntlet vaults still need funded tests.
                 </p>
               </div>
               <p>

@@ -26,7 +26,7 @@ The screenshot shared by the founder shows an Argus page with a 1% buy tax, a 1%
 On 2026-10-05, D1 migrations `0005`, `0006`, and `0007` were applied to the production database. Worker version `81761674-10a9-488d-accc-95f2e51f5f3f` was deployed, and the frontend was pushed to `main`. Public `/api/p1/health` returned database ready, P2 writes enabled, holder utility ready, agent policy ready, and x402 disabled. The public utility and agent routes returned the current frontend asset.
 
 1. Check CORS, account session, quota, and mobile/desktop layout on the public domain. Test a holder and nonholder wallet through the whole report entitlement flow with real Arc reads. Check date rollover and report access across wallets.
-2. Complete P2 funded approval, deposit, and withdrawal with a small user-confirmed amount and independent integration review. Those actions have not been shown to succeed with real funds.
+2. The Galaxy USDC funded approval/deposit/withdraw round trip succeeded on Arc Mainnet; [the receipt record](p2-funded-galaxy-2026-10-05.md) lists the transactions. Complete small funded tests for Gauntlet USDC Prime and Gauntlet EURC Prime, plus an independent integration review, before claiming all P2 routes are verified.
 3. Run an x402 funded test through Arcus before enabling the paid endpoint. Add an operational recovery path for a settled payment whose D1 audit write fails and verify provider error/refund behavior.
 4. Publish the final token allocation, treasury, vesting, Argus fee terms, independent contract/security review, and incident response owner. The token already exists, but the PRD P4 launch gate cannot be retroactively called passed without these disclosures.
 

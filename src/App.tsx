@@ -32,7 +32,7 @@ const documentContent = {
     title: "Build the usefulness first.",
     paragraphs: [
       "01 / Foundation — Arc vault registry, contract evidence, optional wallet view, and watchlist are live.",
-      "02 / Intelligence & Actions — Saved mandates, preflights, Watchtower, history, and wallet-confirmed Morpho actions are in the app. Funded mainnet transaction testing remains a separate gate.",
+      "02 / Intelligence & Actions — Saved mandates, preflights, Watchtower, history, and wallet-confirmed Morpho actions are in the app. A funded Galaxy USDC deposit and withdrawal succeeded on Arc; other vaults still need funded testing.",
       "03 / Agent API — Spending policy reviews and a guarded x402 report endpoint are built. Paid settlement remains disabled until its production payment test passes.",
       "04 / Token utility — MDVYR is live on Arc through Argus. The app checks its onchain balance for a larger daily deep-dive allowance; see the Utility page for the verified contract and exact terms.",
     ],
@@ -54,7 +54,7 @@ const faqs = [
   ],
   [
     "Can I use the product right now?",
-    "Yes. Launch App opens Arc vault research, saved mandates and reports, Watchtower, wallet-approved Morpho actions, and the MDVYR Utility page. The preflight on this landing page remains illustrative. Real-fund approval, deposit, and withdrawal still need an end-to-end mainnet test.",
+    "Yes. Launch App opens Arc vault research, saved mandates and reports, Watchtower, wallet-approved Morpho actions, and the MDVYR Utility page. The preflight on this landing page remains illustrative. A small real-fund Galaxy USDC approval, deposit, and withdrawal succeeded on Arc Mainnet; the other vaults still need funded testing.",
   ],
   [
     "Will an agent have control of my funds?",
@@ -608,7 +608,7 @@ function App() {
                   <div>
                     <span className="phase-status">
                       {
-                        ["LIVE", "LIVE · FUNDED TEST PENDING", "IN REVIEW", "LIVE · DISCLOSURES IN PROGRESS"][
+                        ["LIVE", "LIVE · GALAXY ROUND TRIP VERIFIED", "IN REVIEW", "LIVE · DISCLOSURES IN PROGRESS"][
                           index
                         ]
                       }
