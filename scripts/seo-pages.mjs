@@ -37,8 +37,8 @@ function routePage({ route, title, description, body, indexable }) {
 routePage({
   route: '/docs',
   title: 'MANDEVYR Docs | Arc Vault Research & Product Roadmap',
-  description: 'Read how MANDEVYR checks Arc vault sources, what the read-only workspace can do today, its trust boundaries, and the product roadmap.',
-  body: '<main style="max-width:760px;margin:12vh auto;padding:24px;color:#e9eee5;font:18px/1.7 Arial,sans-serif"><h1>MANDEVYR Documentation</h1><p>MANDEVYR is a read-only Arc vault research workspace. The docs cover getting started, source checks, the product model, trust boundaries, and future plans.</p><p>Explore the methodology behind live contract observations, optional wallet views, and your browser-local watchlist.</p><p><a href="/" style="color:#c1dcad">MANDEVYR home</a></p></main>',
+  description: 'Read how MANDEVYR checks Arc vault sources, protects wallet-approved actions, and verifies MDVYR holder utility and agent API boundaries.',
+  body: '<main style="max-width:760px;margin:12vh auto;padding:24px;color:#e9eee5;font:18px/1.7 Arial,sans-serif"><h1>MANDEVYR Documentation</h1><p>MANDEVYR documents Arc vault research, wallet-signed mandates and actions, MDVYR holder utility, and agent API boundaries.</p><p><a href="/" style="color:#c1dcad">MANDEVYR home</a></p></main>',
   indexable: true,
 });
 

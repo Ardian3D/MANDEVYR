@@ -277,10 +277,10 @@ export function DocsPage() {
                 Make your boundaries <em>explicit.</em>
               </h2>
               <p>
-                A mandate is a proposed set of user-defined constraints that a
-                future MANDEVYR product could apply when reviewing an action. It
-                may describe spending limits, permitted action categories,
-                review requirements, or how recent supporting data must be.
+                A mandate is a saved, wallet-signed set of constraints MANDEVYR
+                applies to preflight and Morpho action review. It can describe
+                spending limits, allowed assets, blocked vaults, evidence
+                freshness, and manual approval requirements.
               </p>
               <div className="docs-callout">
                 <span>DESIGN PRINCIPLE</span>
@@ -289,7 +289,7 @@ export function DocsPage() {
                   authority to move funds by itself.
                 </p>
               </div>
-              <h3>What a mandate could contain</h3>
+              <h3>What a mandate contains</h3>
               <ul className="docs-checklist">
                 <li>
                   <Check /> Per-action or per-period budget limits.
@@ -305,8 +305,8 @@ export function DocsPage() {
                 </li>
               </ul>
               <p>
-                These are product design goals. Persistent mandates and wallet
-                permissions are not implemented on this landing page.
+                Persistent mandates live in the app after wallet sign-in. The
+                landing demo remains illustrative and does not save a mandate.
               </p>
             </section>
 
@@ -317,7 +317,7 @@ export function DocsPage() {
               <p>
                 A preflight check is a review step that compares a proposed
                 action with the available rules and evidence. Its job is to make
-                potential issues easier to notice before any future signing or
+                potential issues easier to notice before any wallet signing or
                 execution step.
               </p>
               <div className="docs-verdicts">
@@ -407,24 +407,25 @@ export function DocsPage() {
                 <em>Authority by choice.</em>
               </h2>
               <p>
-                MANDEVYR is planned as a non-custodial workspace. The intended
-                direction is to keep assets in user-controlled wallets and to
-                require an explicit wallet approval for any future transaction.
+                MANDEVYR uses user-controlled wallets. Signing in to save
+                research is separate from transaction approval. Morpho actions
+                require an explicit wallet confirmation for each transaction.
               </p>
               <div className="docs-callout">
                 <span>CURRENT STATUS</span>
                 <p>
-                  P0 has a read-only Arc data service and optional browser
-                  wallet connection. The landing preflight remains a local
-                  example. There is no account system, automated agent,
-                  payment flow, or transaction in the workspace.
+                  The app has wallet-signed accounts, saved mandates and
+                  preflights, Watchtower, Morpho Actions, MDVYR holder utility,
+                  and agent spending reviews. The landing preflight remains an
+                  example. Paid x402 settlement and automatic agent payments
+                  are not active; real-fund P2 transactions still need a funded
+                  mainnet test.
                 </p>
               </div>
               <p>
-                Any future signing, delegated permissions, smart contracts, or
-                payment integrations need their own implementation, threat
-                review, testing, and clear user-facing disclosures before they
-                are offered.
+                Automatic delegation, paid API settlement, and further wallet
+                integrations need their own threat review, testing, and clear
+                user-facing disclosures before activation.
               </p>
             </section>
 
@@ -442,40 +443,43 @@ export function DocsPage() {
                   </p>
                 </div>
                 <div>
-                  <span>NEXT</span>
+                  <span>LIVE</span>
                   <strong>Intelligence</strong>
                   <p>
-                    Build mandates, deterministic preflight, evidence reports,
-                    and alert designs.
+                    Save mandates and deterministic preflight reports, then
+                    monitor alerts from Arc evidence.
                   </p>
                 </div>
                 <div>
-                  <span>THEN</span>
+                  <span>IN REVIEW</span>
                   <strong>Actions</strong>
                   <p>
-                    Evaluate wallet-approved actions and metered x402 services
-                    after engineering and security work.
+                    Morpho actions require wallet confirmation. The x402 seller
+                    endpoint is built but paid production settlement is paused
+                    until its payment test is complete.
                   </p>
                 </div>
                 <div>
-                  <span>LATER</span>
+                  <span>LIVE</span>
                   <strong>Token utility</strong>
                   <p>
-                    Only define launch and utility details after there is a
-                    working product to support them.
+                    Arc Mainnet MDVYR balance is checked for a larger daily
+                    saved-report deep-dive allowance.
                   </p>
                 </div>
               </div>
               <p>
-                A future MANDEVYR token launch through Argus is a plan, not a
-                live offering. No token contract, ticker, supply, launch date,
-                allocation, or holder entitlement is finalized. Report credits,
-                expanded monitoring, and metered API access are utility ideas,
-                not promised benefits.
+                MDVYR is live on Arc Mainnet at
+                {" "}<code>0xeD2CBF69b36A0E26De6d121be086f31EDAf3b424</code>.
+                The contract reports a supply of 1,000,000,000 MDVYR. One
+                deep dive per UTC day is available to signed-in users; a verified
+                balance of at least 1 MDVYR raises the limit to five. Other
+                proposed benefits are not active. Trading terms, taxes, and
+                allocation should be checked on the Argus token page.
               </p>
               <a
                 className="docs-inline-link"
-                href="https://argus.world"
+                href="https://argus.world/token/0xeD2CBF69b36A0E26De6d121be086f31EDAf3b424"
                 target="_blank"
                 rel="noreferrer"
               >

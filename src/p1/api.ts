@@ -5,13 +5,18 @@ import type { RegistryResponse } from "../p0/registry.ts";
 import { VAULTS } from "../p0/registry.ts";
 import { evidenceStatus } from "../p0/evidence.ts";
 import { evaluateDeposit, validateIntent, validateRules, type Mandate, type PreflightReport } from "./rules.ts";
-import { isHex } from "viem";
+import { isHex, type Address } from "viem";
+import { buildDeepDive, DAILY_FREE_REPORTS, MDVYR_ARGUS_URL, MDVYR_MIN_BALANCE_RAW, MDVYR_TOKEN, readHolderEvidence } from "../p4/token.ts";
+import { paymentMiddleware, x402ResourceServer } from "@x402/hono";
+import { HTTPFacilitatorClient } from "@x402/core/server";
+import { ExactEvmScheme } from "@x402/evm/exact/server";
+import { assessAgentSpend, DEFAULT_AGENT_POLICY, validateAgentPolicy, type AgentPolicy } from "../p3/policy.ts";
 import { getP2Config, p2Client, prepareP2Action, verifyP2Adapter, type P2Bindings } from "../p2/adapter.ts";
 import { isExpired, parsePositiveRaw, receiptState, reservedDepositRaw, type PreparedAction } from "../p2/core.ts";
 
 type Statement = { bind(...values: unknown[]): Statement; first<T>(): Promise<T | null>; all<T>(): Promise<{ results: T[] }>; run(): Promise<{ meta: { changes: number } }> };
 export type P1Database = { prepare(sql: string): Statement };
-type Env = { Bindings: { DB?: P1Database; MANDEVYR_PUBLIC_ORIGINS?: string } & P2Bindings };
+type Env = { Bindings: { DB?: P1Database; MANDEVYR_PUBLIC_ORIGINS?: string; P3_X402_PAYEE?: string; P3_X402_ENABLED?: string } & P2Bindings };
 type Session = { wallet: string; tokenHash: string };
 type MandateRow = { id: string; version: number; rules_json: string; created_at: string; supersedes_id: string | null };
 type ReportRow = { report_json: string; input_hash: string };
@@ -35,6 +40,8 @@ async function rateAllowed(db: P1Database, key: string, limit: number, windowSec
 
 export function createP1Api(getRegistry: () => Promise<RegistryResponse>, verifyMessage: (args: { message: string; signature: `0x${string}`; domain: string; nonce: string }) => Promise<boolean>) {
   const app = new Hono<Env>();
+  const x402Server = new x402ResourceServer(new HTTPFacilitatorClient({ url: "https://facilitator.arcusnetwork.co" })).register("eip155:5042", new ExactEvmScheme());
+  const x402MiddlewareByPayee = new Map<string, ReturnType<typeof paymentMiddleware>>();
   const evidenceCache = new Map<string, { until: number; value: { vaultId: string; chainId: number; blockNumber: string; observedAt: string; assetDecimals: number; shareDecimals: number } }>();
   function approvedOrigin(c: Context<Env>) {
     const origin = c.req.header("Origin");
@@ -61,12 +68,20 @@ export function createP1Api(getRegistry: () => Promise<RegistryResponse>, verify
     return row ? { wallet: row.wallet, tokenHash } : null;
   }
 
+  async function deepDiveFor(report: PreflightReport) {
+    const current = await getRegistry().then((value) => value.items.find((vault) => vault.id === report.intent.targetId)).catch(() => undefined);
+    return buildDeepDive(report, current);
+  }
+
   app.get("/health", async (c) => {
     try {
       await c.env.DB!.prepare("SELECT revision FROM p2_wallet_revision LIMIT 1").all();
+      await c.env.DB!.prepare("SELECT wallet FROM p4_report_uses LIMIT 1").all();
+      await c.env.DB!.prepare("SELECT wallet FROM p3_x402_payments LIMIT 1").all();
+      await c.env.DB!.prepare("SELECT wallet FROM p3_agent_policies LIMIT 1").all();
       const config = getP2Config(c.env);
-      return c.json({ status: "ok", chainId: config.chainId, database: "ready", writesEnabled: config.writesEnabled });
-    } catch { return c.json({ status: "degraded", database: "migration required", writesEnabled: false }, 503); }
+      return c.json({ status: "ok", chainId: config.chainId, database: "ready", writesEnabled: config.writesEnabled, holderUtilityReady: true, agentPolicyReady: true, x402Enabled: c.env?.P3_X402_ENABLED === "true" });
+    } catch { return c.json({ status: "degraded", database: "migration required", writesEnabled: false, holderUtilityReady: false, agentPolicyReady: false, x402Enabled: false }, 503); }
   });
 
   app.post("/auth/nonce", async (c) => {
@@ -175,6 +190,169 @@ export function createP1Api(getRegistry: () => Promise<RegistryResponse>, verify
     if (!current) return c.json({ error: "Wallet sign-in required." }, 401);
     const rows = await c.env.DB!.prepare("SELECT report_json FROM p1_reports WHERE wallet = ? ORDER BY created_at DESC LIMIT 50").bind(current.wallet).all<ReportRow>();
     return c.json({ items: rows.results.map((row) => JSON.parse(row.report_json) as PreflightReport) });
+  });
+
+  app.get("/utility/token", async (c) => {
+    const current = await session(c);
+    const day = new Date().toISOString().slice(0, 10);
+    const used = current ? await c.env.DB!.prepare("SELECT COUNT(*) AS count FROM p4_report_uses WHERE wallet = ? AND day = ?").bind(current.wallet, day).first<{ count: number }>() : null;
+    let evidence = null;
+    let evidenceError: string | null = null;
+    if (current) {
+      try { evidence = await readHolderEvidence(current.wallet as Address); }
+      catch { evidenceError = "Holder balance is unavailable from Arc Mainnet. Free access remains available."; }
+    }
+    return c.json({
+      token: MDVYR_TOKEN,
+      network: "Arc Mainnet",
+      chainId: 5042,
+      argusUrl: MDVYR_ARGUS_URL,
+      holderMinimumRaw: MDVYR_MIN_BALANCE_RAW.toString(),
+      freeDailyReports: DAILY_FREE_REPORTS,
+      holderDailyReports: 5,
+      day,
+      usedToday: used?.count ?? 0,
+      evidence,
+      evidenceError,
+      signedIn: Boolean(current),
+    });
+  });
+
+  app.post("/utility/deep-dive/:id", async (c) => {
+    const current = await session(c);
+    if (!current) return c.json({ error: "Sign in with your Arc wallet to open a saved report." }, 401);
+    const reportId = c.req.param("id");
+    if (!/^prf_[0-9a-f-]{36}$/.test(reportId)) return c.json({ error: "Invalid report ID." }, 400);
+    const row = await c.env.DB!.prepare("SELECT report_json FROM p1_reports WHERE id = ? AND wallet = ?").bind(reportId, current.wallet).first<ReportRow>();
+    if (!row) return c.json({ error: "Report not found in this wallet's history." }, 404);
+    const report = JSON.parse(row.report_json) as PreflightReport;
+    const existing = await c.env.DB!.prepare("SELECT tier, token_block, day FROM p4_report_uses WHERE wallet = ? AND report_id = ?").bind(current.wallet, reportId).first<{ tier: string; token_block: string | null; day: string }>();
+    if (existing) return c.json({ deepDive: await deepDiveFor(report), access: { tier: existing.tier, tokenBlock: existing.token_block, day: existing.day, repeat: true } });
+
+    // A fresh chain read decides the higher quota. RPC failure falls back to free access.
+    const evidence = await readHolderEvidence(current.wallet as Address).catch(() => null);
+    const limit = evidence?.dailyReportLimit ?? DAILY_FREE_REPORTS;
+    const tier = evidence?.holder ? "holder" : "free";
+    const day = new Date().toISOString().slice(0, 10);
+    const inserted = await c.env.DB!.prepare(`INSERT INTO p4_report_uses (wallet, report_id, day, tier, token_block, created_at)
+      SELECT ?, ?, ?, ?, ?, ? WHERE (SELECT COUNT(*) FROM p4_report_uses WHERE wallet = ? AND day = ?) < ?
+      ON CONFLICT(wallet, report_id) DO NOTHING`)
+      .bind(current.wallet, reportId, day, tier, evidence?.blockNumber ?? null, new Date().toISOString(), current.wallet, day, limit).run();
+    if (inserted.meta.changes !== 1) {
+      const repeat = await c.env.DB!.prepare("SELECT tier, token_block, day FROM p4_report_uses WHERE wallet = ? AND report_id = ?").bind(current.wallet, reportId).first<{ tier: string; token_block: string | null; day: string }>();
+      if (repeat) return c.json({ deepDive: await deepDiveFor(report), access: { tier: repeat.tier, tokenBlock: repeat.token_block, day: repeat.day, repeat: true } });
+      return c.json({ error: `Daily deep-dive limit reached (${limit}). The UTC quota resets tomorrow.` }, 429);
+    }
+    return c.json({ deepDive: await deepDiveFor(report), access: { tier, tokenBlock: evidence?.blockNumber ?? null, day, repeat: false } });
+  });
+
+  app.get("/x402/config", async (c) => c.json({
+    enabled: c.env?.P3_X402_ENABLED === "true" && Boolean(c.env?.P3_X402_PAYEE && /^0x[0-9a-fA-F]{40}$/.test(c.env.P3_X402_PAYEE)),
+    network: "eip155:5042",
+    asset: "0x3600000000000000000000000000000000000000",
+    priceRaw: "10000",
+    priceUsdc: "0.01",
+    facilitator: "https://facilitator.arcusnetwork.co",
+    resource: "/api/p1/x402/reports/{report_id}/deep-dive",
+    manualWalletApproval: true,
+  }));
+
+  app.use("/x402/reports/:id/deep-dive", async (c, next) => {
+    const current = await session(c);
+    if (!current) return c.json({ error: "Wallet sign-in required before payment." }, 401);
+    const reportId = c.req.param("id");
+    if (!/^prf_[0-9a-f-]{36}$/.test(reportId)) return c.json({ error: "Invalid report ID." }, 400);
+    const owned = await c.env.DB!.prepare("SELECT report_json FROM p1_reports WHERE id = ? AND wallet = ?").bind(reportId, current.wallet).first<ReportRow>();
+    if (!owned) return c.json({ error: "Report not found in this wallet's history." }, 404);
+    const paid = await c.env.DB!.prepare("SELECT transaction_hash FROM p3_x402_payments WHERE wallet = ? AND report_id = ?").bind(current.wallet, reportId).first<{ transaction_hash: string }>();
+    if (paid) { await next(); return; }
+    const payee = c.env?.P3_X402_PAYEE;
+    if (c.env?.P3_X402_ENABLED !== "true" || !payee || !/^0x[0-9a-fA-F]{40}$/.test(payee)) return c.json({ error: "The paid API is not active. Use the free or holder quota instead." }, 503);
+    const key = c.req.header("Idempotency-Key");
+    if (!key || !/^[a-zA-Z0-9_-]{8,80}$/.test(key)) return c.json({ error: "An Idempotency-Key header (8–80 letters, digits, _ or -) is required." }, 400);
+    const previousKey = await c.env.DB!.prepare("SELECT report_id FROM p3_x402_payments WHERE wallet = ? AND idempotency_key = ?").bind(current.wallet, key).first<{ report_id: string }>();
+    if (previousKey) return c.json({ error: "That payment key belongs to another report." }, 409);
+    let middleware = x402MiddlewareByPayee.get(payee.toLowerCase());
+    if (!middleware) {
+      middleware = paymentMiddleware({
+      "GET /api/p1/x402/reports/:id/deep-dive": {
+        accepts: { scheme: "exact", network: "eip155:5042", payTo: payee as Address, price: { amount: "10000", asset: "0x3600000000000000000000000000000000000000", extra: { name: "USDC", version: "2" } }, maxTimeoutSeconds: 120 },
+        description: "One deterministic deep dive for a saved MANDEVYR preflight",
+      },
+      "GET /x402/reports/:id/deep-dive": {
+        accepts: { scheme: "exact", network: "eip155:5042", payTo: payee as Address, price: { amount: "10000", asset: "0x3600000000000000000000000000000000000000", extra: { name: "USDC", version: "2" } }, maxTimeoutSeconds: 120 },
+        description: "One deterministic deep dive for a saved MANDEVYR preflight",
+      },
+      }, x402Server);
+      x402MiddlewareByPayee.set(payee.toLowerCase(), middleware);
+    }
+    const paymentResponse = await middleware(c, next);
+    if (paymentResponse instanceof Response) return paymentResponse;
+    const encoded = c.res.headers.get("PAYMENT-RESPONSE");
+    if (c.res.status !== 200 || !encoded) return;
+    try {
+      const receipt = JSON.parse(atob(encoded)) as { transaction?: unknown; network?: unknown; success?: unknown };
+      if (receipt.success !== true || typeof receipt.transaction !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(receipt.transaction)) throw new Error("Invalid settlement receipt");
+      const resultHash = c.res.headers.get("X-Mandevyr-Result-Hash");
+      if (!resultHash || !/^[0-9a-f]{64}$/.test(resultHash)) throw new Error("Result hash missing from paid response");
+      await c.env.DB!.prepare("INSERT OR IGNORE INTO p3_x402_payments (wallet, report_id, idempotency_key, network, amount_raw, asset, transaction_hash, result_hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        .bind(current.wallet, reportId, key, "eip155:5042", "10000", "0x3600000000000000000000000000000000000000", receipt.transaction, resultHash, new Date().toISOString()).run();
+    } catch (error) { console.error("x402 settlement audit failed; preserve PAYMENT-RESPONSE for manual recovery", error); }
+  });
+
+  app.get("/x402/reports/:id/deep-dive", async (c) => {
+    const current = await session(c);
+    if (!current) return c.json({ error: "Wallet sign-in required." }, 401);
+    const row = await c.env.DB!.prepare("SELECT report_json FROM p1_reports WHERE id = ? AND wallet = ?").bind(c.req.param("id"), current.wallet).first<ReportRow>();
+    if (!row) return c.json({ error: "Report not found." }, 404);
+    const deepDive = await deepDiveFor(JSON.parse(row.report_json) as PreflightReport);
+    c.header("X-Mandevyr-Result-Hash", await sha256(json(deepDive)));
+    return c.json({ deepDive, payment: "x402 or prior paid access" });
+  });
+
+  app.get("/agent/policy", async (c) => {
+    const current = await session(c);
+    if (!current) return c.json({ error: "Wallet sign-in required." }, 401);
+    const row = await c.env.DB!.prepare("SELECT policy_json, updated_at FROM p3_agent_policies WHERE wallet = ?").bind(current.wallet).first<{ policy_json: string; updated_at: string }>();
+    return c.json({ policy: row ? JSON.parse(row.policy_json) as AgentPolicy : DEFAULT_AGENT_POLICY, updatedAt: row?.updated_at ?? null, paymentExecutionEnabled: false });
+  });
+
+  app.put("/agent/policy", async (c) => {
+    const current = await session(c);
+    if (!current) return c.json({ error: "Wallet sign-in required." }, 401);
+    const body = await c.req.json().catch(() => null) as { policy?: unknown } | null;
+    let policy: AgentPolicy;
+    try { policy = validateAgentPolicy(body?.policy); }
+    catch (error) { return c.json({ error: error instanceof Error ? error.message : "Invalid policy." }, 400); }
+    const updatedAt = new Date().toISOString();
+    await c.env.DB!.prepare("INSERT INTO p3_agent_policies (wallet, policy_json, updated_at) VALUES (?, ?, ?) ON CONFLICT(wallet) DO UPDATE SET policy_json = excluded.policy_json, updated_at = excluded.updated_at").bind(current.wallet, json(policy), updatedAt).run();
+    return c.json({ policy, updatedAt, paymentExecutionEnabled: false });
+  });
+
+  app.post("/agent/review", async (c) => {
+    const current = await session(c);
+    if (!current) return c.json({ error: "Wallet sign-in required." }, 401);
+    if (!await rateAllowed(c.env.DB!, `agent:${current.wallet}`, 30, 3600)) return c.json({ error: "Hourly review limit reached." }, 429);
+    const body = await c.req.json().catch(() => null) as { resourceUrl?: unknown; purpose?: unknown; priceRaw?: unknown } | null;
+    if (typeof body?.resourceUrl !== "string" || body.resourceUrl.length > 500 || typeof body.purpose !== "string" || body.purpose.length < 3 || body.purpose.length > 240 || typeof body.priceRaw !== "string" || !/^(0|[1-9]\d{0,12})$/.test(body.priceRaw)) return c.json({ error: "Provide resource URL, purpose, and a valid raw USDC price." }, 400);
+    const policyRow = await c.env.DB!.prepare("SELECT policy_json FROM p3_agent_policies WHERE wallet = ?").bind(current.wallet).first<{ policy_json: string }>();
+    const policy = policyRow ? JSON.parse(policyRow.policy_json) as AgentPolicy : DEFAULT_AGENT_POLICY;
+    const day = new Date().toISOString().slice(0, 10);
+    const rows = await c.env.DB!.prepare("SELECT price_raw FROM p3_agent_reviews WHERE wallet = ? AND decision = 'allowed' AND created_at >= ?").bind(current.wallet, `${day}T00:00:00.000Z`).all<{ price_raw: string }>();
+    const reviewedRaw = rows.results.reduce((total, row) => total + BigInt(row.price_raw), 0n).toString();
+    const result = assessAgentSpend({ policy, resourceUrl: body.resourceUrl, priceRaw: body.priceRaw, spentTodayRaw: reviewedRaw });
+    const reviewedAt = new Date().toISOString();
+    const id = `agr_${crypto.randomUUID()}`;
+    await c.env.DB!.prepare("INSERT INTO p3_agent_reviews (id, wallet, resource_url, purpose, price_raw, decision, reason, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+      .bind(id, current.wallet, body.resourceUrl, body.purpose, body.priceRaw, result.allowed ? "allowed" : "blocked", result.reason, reviewedAt).run();
+    return c.json({ id, ...result, reviewedAt, reviewedRaw, manualApprovalRequired: true, paymentSubmitted: false, note: "This review does not verify an external 402 quote or send a payment." });
+  });
+
+  app.get("/agent/reviews", async (c) => {
+    const current = await session(c);
+    if (!current) return c.json({ error: "Wallet sign-in required." }, 401);
+    const rows = await c.env.DB!.prepare("SELECT id, resource_url, purpose, price_raw, decision, reason, created_at FROM p3_agent_reviews WHERE wallet = ? ORDER BY created_at DESC LIMIT 50").bind(current.wallet).all();
+    return c.json({ items: rows.results, paymentExecutionEnabled: false });
   });
 
   app.get("/watchlist", async (c) => {

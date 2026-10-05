@@ -1093,7 +1093,7 @@ h2 {
   padding: 8px 10px;
   border-radius: 30px;
 }
-.token-meta button {
+.token-meta a {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -1816,7 +1816,7 @@ h2 {
   .token-copy > p:not(.fine-print) {
     font-size: 13px;
   }
-  .token-meta button {
+  .token-meta a {
     font-size: 10px;
   }
   .faq-section {

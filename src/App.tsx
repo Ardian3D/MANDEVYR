@@ -25,24 +25,24 @@ const documentContent = {
     paragraphs: [
       "Onchain finance is opening up to people and agents alike. But an opportunity is only useful when you can understand its terms, its evidence, and its place inside your own boundaries.",
       "MANDEVYR is being built as a decision workspace for Arc. A mandate captures your limits. A preflight checks a proposed move. An evidence trail makes the reasoning visible. You decide what happens next.",
-      "The first release now includes a read-only Arc vault registry, source checks, an optional wallet view, and a local watchlist. The landing preflight remains an illustrative demo. Wallet-approved actions, x402 services, and token utility follow in later stages.",
+      "The workspace now includes Arc vault research, wallet-signed mandates and preflights, alerts, and wallet-approved Morpho actions. The landing preflight remains an illustrative demo. Agent spending reviews and MDVYR holder access are available in the app; the paid x402 endpoint remains behind a production switch pending a payment test.",
     ],
   },
   roadmap: {
     title: "Build the usefulness first.",
     paragraphs: [
-      "01 / Foundation — Brand, landing experience, and a read-only Arc opportunity workspace. This stage is live locally.",
-      "02 / Intelligence — Personal mandates, evidence-backed reports, and useful alerts.",
-      "03 / Actions & API — Wallet-approved actions and metered x402 services, after integration and security checks.",
-      "04 / Token utility — A planned launch through Argus, with working benefits and transparent terms. Report credits, expanded monitoring, and API access are proposed utilities. No token contract, supply, launch date, or holder benefits have been finalized.",
+      "01 / Foundation — Arc vault registry, contract evidence, optional wallet view, and watchlist are live.",
+      "02 / Intelligence & Actions — Saved mandates, preflights, Watchtower, history, and wallet-confirmed Morpho actions are in the app. Funded mainnet transaction testing remains a separate gate.",
+      "03 / Agent API — Spending policy reviews and a guarded x402 report endpoint are built. Paid settlement remains disabled until its production payment test passes.",
+      "04 / Token utility — MDVYR is live on Arc through Argus. The app checks its onchain balance for a larger daily deep-dive allowance; see the Utility page for the verified contract and exact terms.",
     ],
   },
   privacy: {
     title: "Explore without handing over your data.",
     paragraphs: [
-      "The landing preflight uses illustrative browser-only data. In the app, wallet connection is optional and read-only. If you connect, your public address is sent to the MANDEVYR read API, which reads Arc RPC. No signature, payment, or transaction is requested.",
-      "Your watchlist and selected wallet preference are stored in this browser. This version has no analytics trackers or third-party font requests. Standard hosting access logs may be processed by the hosting provider when this website is deployed.",
-      "External links to Arc and Argus lead to independent websites with their own terms. A full product privacy notice will accompany any future accounts, alerts, or financial integrations.",
+      "The landing preflight is an illustrative browser-only demo. In the app, wallet connection is optional. Saved mandates, reports, alerts, and token utility require a wallet sign-in message; Morpho actions require separate wallet transaction confirmations.",
+      "Selected wallet preference and the local watchlist are stored in your browser. Signed-in account data and audit records are stored in Cloudflare D1. MANDEVYR does not ask for or store your private key. Hosting providers may retain normal access logs.",
+      "Arc, Morpho, and Argus are independent services. MANDEVYR does not claim their endorsement. Review each wallet prompt and the current terms of external services.",
     ],
   },
 };
@@ -54,11 +54,11 @@ const faqs = [
   ],
   [
     "Can I use the product right now?",
-    "Yes. Launch App opens a read-only Arc vault registry with live contract observations, source links, a local watchlist, and an optional wallet view. The preflight on this landing page remains illustrative. Transactions are not available yet.",
+    "Yes. Launch App opens Arc vault research, saved mandates and reports, Watchtower, wallet-approved Morpho actions, and the MDVYR Utility page. The preflight on this landing page remains illustrative. Real-fund approval, deposit, and withdrawal still need an end-to-end mainnet test.",
   ],
   [
     "Will an agent have control of my funds?",
-    "The planned first release is non-custodial. You keep your keys and approve each action with your wallet. Any future delegation will require explicit permissions, spending limits, and a separate security review.",
+    "No. You keep your keys and approve each transaction in your wallet. The Agent API currently reviews proposed spending against your allowlist and caps; it does not execute payments. Automatic delegation would need a separate security review.",
   ],
   [
     "How do yield, tokenized assets, and x402 fit together?",
@@ -66,7 +66,7 @@ const faqs = [
   ],
   [
     "Is the MANDEVYR token available?",
-    "No token has been launched. A future launch through Argus is planned after useful product features are available. The token address, supply, benefits, and launch terms will be published only when confirmed.",
+    "Yes. MDVYR is on Arc Mainnet at 0xeD2CBF69b36A0E26De6d121be086f31EDAf3b424. The app verifies token identity and holder balance onchain. A balance of at least 1 MDVYR raises the daily saved-report deep-dive allowance from one to five. See Utility for details and the Argus link.",
   ],
 ];
 
@@ -446,40 +446,38 @@ function App() {
           </div>
           <div className="token-copy reveal">
             <h2>
-              A part of
+              Utility you can
               <br />
-              <em>what comes next.</em>
+              <em>verify onchain.</em>
             </h2>
             <p>
-              Designed around the things you actually use. Deeper intelligence.
-              More monitoring. Access for your agents.
+              MDVYR is live on Arc. The first product benefit expands your daily
+              saved-report deep-dive allowance when your wallet holds the token.
             </p>
             <div className="utility-list">
               <span>
-                <strong>Report credits</strong>
+                <strong>Deep-dive allowance · live</strong>
                 <ArrowUpRight size={16} />
               </span>
               <span>
-                <strong>Expanded monitoring</strong>
+                <strong>Expanded monitoring · proposed</strong>
                 <ArrowUpRight size={16} />
               </span>
               <span>
-                <strong>Metered API access</strong>
+                <strong>API credits · proposed</strong>
                 <ArrowUpRight size={16} />
               </span>
             </div>
             <div className="token-meta">
-              <span className="outline-badge">PLANNED · NOT LIVE</span>
-              <button onClick={() => openDocument("roadmap")}>
-                View the roadmap <ArrowUpRight size={14} />
-              </button>
+              <span className="outline-badge">MDVYR · ARC MAINNET</span>
+              <a href="/app/utility">See the utility <ArrowUpRight size={14} /></a>
             </div>
             <p className="fine-print">
-              Proposed utilities. Launch planned through{" "}
-              <a href="https://argus.world" target="_blank" rel="noreferrer">
+              Verify the contract and current market terms on{" "}
+              <a href="https://argus.world/token/0xeD2CBF69b36A0E26De6d121be086f31EDAf3b424" target="_blank" rel="noreferrer">
                 Argus
               </a>
-              . Terms, availability, and token details are not finalized.
+              . Expanded monitoring and API credits are not active benefits.
             </p>
           </div>
         </section>
@@ -610,7 +608,7 @@ function App() {
                   <div>
                     <span className="phase-status">
                       {
-                        ["CURRENT STAGE", "PLANNED", "PLANNED", "PROPOSED"][
+                        ["LIVE", "LIVE · FUNDED TEST PENDING", "IN REVIEW", "LIVE · DISCLOSURES IN PROGRESS"][
                           index
                         ]
                       }
@@ -619,8 +617,8 @@ function App() {
                       {
                         [
                           "Foundation",
-                          "Intelligence",
-                          "Actions & API",
+                          "Intelligence & Actions",
+                          "Agent API",
                           "Token utility",
                         ][index]
                       }

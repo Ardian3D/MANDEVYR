@@ -3,7 +3,9 @@
   "main": "./src/worker/index.ts",
   "compatibility_date": "2026-09-30",
   "vars": {
-    "MANDEVYR_PUBLIC_ORIGINS": "https://mandevyr.vercel.app,https://www.mandevyr.my.id,https://mandevyr.my.id"
+    "MANDEVYR_PUBLIC_ORIGINS": "https://mandevyr.vercel.app,https://www.mandevyr.my.id,https://mandevyr.my.id",
+    "P3_X402_PAYEE": "0x2D44a6E9afAEA4d686E886f93b0BfD2059F20F01",
+    "P3_X402_ENABLED": "false"
   },
   "d1_databases": [{
     "binding": "DB",

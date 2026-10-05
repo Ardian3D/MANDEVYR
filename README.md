@@ -1,6 +1,6 @@
 # MANDEVYR
 
-MANDEVYR is an English-language Arc decision workspace. The public landing page explains the product; P0 adds a read-only vault registry and wallet view. The detailed product plan is in [PRD.md](./PRD.md).
+MANDEVYR is an English-language Arc decision workspace. The landing page explains the product; the app includes vault research, wallet-signed mandates and reports, Morpho Actions, token utility, and agent policy reviews. The detailed product plan is in [PRD.md](./PRD.md).
 
 ## Run locally
 
@@ -27,7 +27,7 @@ npm run preview
 - `/app/explore`: curated Morpho vault list, search and filters.
 - `/app/opportunities/:id`: contract address, base asset, block and fetch time, provider source, and risk flags.
 - `/app/watchlist`: browser-local saved entries.
-- Optional injected EVM wallet connection for one native Arc USDC balance and vault-share value. The wallet chooser discovers installed extensions through EIP-6963, with a legacy `window.ethereum` fallback. Clicking Connect Wallet opens the chooser; a wallet prompt is sent only after a user selects an extension. The app never requests a signature or submits a transaction.
+- Optional injected EVM wallet connection for one native Arc USDC balance and vault-share value. The wallet chooser discovers installed extensions through EIP-6963, with a legacy `window.ethereum` fallback. Clicking Connect Wallet opens the chooser; a wallet prompt is sent only after a user selects an extension. The P0 registry does not request a signature or submit a transaction; P1 account sign-in and P2 Actions have separate wallet prompts.
 
 The Worker uses a fixed reviewed address list in `src/p0/registry.ts` and reads Arc RPC. Each refresh checks contract code, `asset()`, the asset symbol and decimals, and `totalAssets()` at one block. A failed or stale check is shown explicitly. The app does not present an APY until its source, calculation method, fee treatment, and time window are verified.
 
@@ -70,7 +70,9 @@ Production builds show the P1/P2 routes by default; `VITE_P1_ENABLED=false` is a
 
 The landing preflight is a local concept demonstration with illustrative values. It is separate from the live read-only workspace and cannot perform a payment or trade. `/docs` covers the product model, live registry methodology, current trust boundaries, and roadmap.
 
-The supplied MANDEVYR logos remain in `public/`; the official Arc dark-background logo is in `public/brand/`. No token has launched, and token utility remains a later phase.
+The supplied MANDEVYR logos remain in `public/`; the official Arc dark-background logo is in `public/brand/`. MDVYR is live on Arc Mainnet at `0xeD2CBF69b36A0E26De6d121be086f31EDAf3b424`. The Utility page grants five saved-report deep dives per UTC day to wallets with at least 1 MDVYR, compared with one for signed-in wallets without it. The x402 seller endpoint is behind `P3_X402_ENABLED` until a real settlement test passes.
+
+See [P3/P4 release record](docs/phase-3-4.md) for verified facts, current API status, remaining gates, and deployment order.
 
 ## Search and Vercel deployment
 

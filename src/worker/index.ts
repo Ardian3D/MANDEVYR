@@ -188,7 +188,7 @@ app.route("/api/p1", createP1Api(
 ));
 
 export default {
-  fetch(request: Request, env?: { DB?: P1Database; MANDEVYR_PUBLIC_ORIGINS?: string; P2_MAINNET_WRITES_ENABLED?: string }) { return app.fetch(request, env); },
+  fetch(request: Request, env?: { DB?: P1Database; MANDEVYR_PUBLIC_ORIGINS?: string; P2_MAINNET_WRITES_ENABLED?: string; P3_X402_PAYEE?: string; P3_X402_ENABLED?: string }) { return app.fetch(request, env); },
   async scheduled(_event: unknown, env: { DB?: P1Database }) {
     if (!env.DB) return;
     await runWatchtower(env.DB, () => registry(true));
