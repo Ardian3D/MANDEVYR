@@ -11,7 +11,7 @@ import { isExpired, parsePositiveRaw, receiptState, reservedDepositRaw, type Pre
 
 type Statement = { bind(...values: unknown[]): Statement; first<T>(): Promise<T | null>; all<T>(): Promise<{ results: T[] }>; run(): Promise<{ meta: { changes: number } }> };
 export type P1Database = { prepare(sql: string): Statement };
-type Env = { Bindings: { DB?: P1Database } & P2Bindings };
+type Env = { Bindings: { DB?: P1Database; MANDEVYR_PUBLIC_ORIGINS?: string } & P2Bindings };
 type Session = { wallet: string; tokenHash: string };
 type MandateRow = { id: string; version: number; rules_json: string; created_at: string; supersedes_id: string | null };
 type ReportRow = { report_json: string; input_hash: string };
@@ -36,13 +36,19 @@ async function rateAllowed(db: P1Database, key: string, limit: number, windowSec
 export function createP1Api(getRegistry: () => Promise<RegistryResponse>, verifyMessage: (args: { message: string; signature: `0x${string}`; domain: string; nonce: string }) => Promise<boolean>) {
   const app = new Hono<Env>();
   const evidenceCache = new Map<string, { until: number; value: { vaultId: string; chainId: number; blockNumber: string; observedAt: string; assetDecimals: number; shareDecimals: number } }>();
+  function approvedOrigin(c: Context<Env>) {
+    const origin = c.req.header("Origin");
+    if (!origin) return null;
+    if (origin === new URL(c.req.url).origin) return origin;
+    const publicOrigins = c.env?.MANDEVYR_PUBLIC_ORIGINS?.split(",").map((value) => value.trim()) ?? [];
+    return publicOrigins.includes(origin) ? origin : null;
+  }
   app.use("*", async (c, next) => {
     c.header("Cache-Control", "no-store");
     const db = c.env?.DB;
     if (!db) return c.json({ error: "P1 storage is not configured. Account features are unavailable." }, 503);
     if (c.req.method !== "GET" && c.req.method !== "HEAD") {
-      const origin = c.req.header("Origin");
-      if (!origin || origin !== new URL(c.req.url).origin) return c.json({ error: "Request origin did not match this site." }, 403);
+      if (!approvedOrigin(c)) return c.json({ error: "Request origin did not match this site." }, 403);
     }
     await next();
   });
@@ -54,6 +60,14 @@ export function createP1Api(getRegistry: () => Promise<RegistryResponse>, verify
     const row = await c.env.DB!.prepare("SELECT wallet FROM p1_sessions WHERE token_hash = ? AND revoked_at IS NULL AND expires_at > ?").bind(tokenHash, Math.floor(Date.now() / 1000)).first<{ wallet: string }>();
     return row ? { wallet: row.wallet, tokenHash } : null;
   }
+
+  app.get("/health", async (c) => {
+    try {
+      await c.env.DB!.prepare("SELECT revision FROM p2_wallet_revision LIMIT 1").all();
+      const config = getP2Config(c.env);
+      return c.json({ status: "ok", chainId: config.chainId, database: "ready", writesEnabled: config.writesEnabled });
+    } catch { return c.json({ status: "degraded", database: "migration required", writesEnabled: false }, 503); }
+  });
 
   app.post("/auth/nonce", async (c) => {
     const ip = c.req.header("CF-Connecting-IP") ?? "local";
@@ -68,7 +82,7 @@ export function createP1Api(getRegistry: () => Promise<RegistryResponse>, verify
     if (typeof body?.message !== "string" || body.message.length > 1500 || typeof body.signature !== "string" || !/^0x[0-9a-fA-F]+$/.test(body.signature)) return c.json({ error: "Invalid SIWE message or signature." }, 400);
     let parsed;
     try { parsed = parseSiweMessage(body.message); } catch { return c.json({ error: "Malformed SIWE message." }, 400); }
-    const origin = new URL(c.req.url).origin;
+    const origin = approvedOrigin(c)!;
     const now = Date.now();
     const issued = parsed.issuedAt?.getTime() ?? NaN;
     const expiry = parsed.expirationTime?.getTime() ?? NaN;

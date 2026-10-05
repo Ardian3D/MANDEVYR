@@ -2,6 +2,9 @@
   "name": "mandevyr-p1",
   "main": "./src/worker/index.ts",
   "compatibility_date": "2026-09-30",
+  "vars": {
+    "MANDEVYR_PUBLIC_ORIGINS": "https://mandevyr.vercel.app,https://www.mandevyr.my.id,https://mandevyr.my.id"
+  },
   "d1_databases": [{
     "binding": "DB",
     "database_name": "mandevyr-p1",
